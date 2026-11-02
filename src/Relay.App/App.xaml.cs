@@ -60,12 +60,18 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (_, ex) => Paths.LogError("Unhandled", (ex.ExceptionObject as Exception) ?? new Exception("Unknown error"));
         TaskScheduler.UnobservedTaskException += (_, ex) => { Paths.LogError("Unobserved task", ex.Exception); ex.SetObserved(); };
 
+        // One app identity for the process and its shortcuts (set before any window is shown).
+        var appId = Relay.Installer.AppIdentity.For(Paths.IsPortable);
+        Relay.Installer.AppIdentity.ApplyToProcess(appId);
+
         // One process per data folder; later launches open a window in the running instance.
         _single = new SingleInstance(Paths.Root);
         if (!_single.IsFirst)
         {
             if (_single.Forward(e.Args)) { Shutdown(); return; }
         }
+        if (Environment.ProcessPath is { } exePath)
+            _ = Task.Run(() => Relay.Installer.AppIdentity.StampShortcuts(exePath, appId));
 
         // The Evergreen WebView2 Runtime ships with Windows 10/11. RELAY never installs it silently.
         var runtime = WebViewRuntime.GetInstalledVersion();

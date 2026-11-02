@@ -63,6 +63,10 @@ public sealed class TaskManagerWindow : Window
         _open.Click += (_, _) => OpenSelected();
         _unload = new Button { Content = "Unload to free memory", Style = (Style)FindResource("Button.Primary"), IsEnabled = false };
         _unload.Click += (_, _) => UnloadSelected();
+        var engine = new Button { Content = "Engine details", Style = (Style)FindResource("Button.Secondary"), Margin = new Thickness(0, 0, 8, 0),
+                                  ToolTip = "WebView2's own task manager: every engine process by type (browser, GPU, renderer, utility)" };
+        engine.Click += (_, _) => OpenEngineTaskManager();
+        buttons.Children.Add(engine);
         buttons.Children.Add(_open);
         buttons.Children.Add(_unload);
         DockPanel.SetDock(buttons, Dock.Bottom);
@@ -113,7 +117,11 @@ public sealed class TaskManagerWindow : Window
                           (snap.TotalCpuPercent is { } c ? $" · {UsageFormat.Percent(c)}% CPU" : string.Empty);
             var loaded = tabs.Count - snap.UnloadedTabs;
             _summary.Text = $"{tabs.Count} {(tabs.Count == 1 ? "tab" : "tabs")}: {loaded} loaded, {snap.UnloadedTabs} unloaded (0 MB each). " +
-                            $"Includes RELAY and all {snap.Rows.Count - 1} engine processes (msedgewebview2.exe), measured like Windows Task Manager.";
+                            $"Includes RELAY and all {snap.Rows.Count - 1} engine processes (msedgewebview2.exe), measured like Windows Task Manager. " +
+                            (snap.EngineProcesses == 0 ? string.Empty
+                             : snap.EngineUnderRelay == snap.EngineProcesses
+                                ? "Windows Task Manager lists them all under \"RELAY Browser\"."
+                                : $"{snap.EngineProcesses - snap.EngineUnderRelay} of them weren't started by this RELAY window process, so Windows Task Manager lists them separately.");
 
             _list.Items.Clear();
             foreach (var row in snap.Rows.OrderByDescending(r => r.IsTab).ThenByDescending(r => r.MemoryBytes))
@@ -175,6 +183,12 @@ public sealed class TaskManagerWindow : Window
         window.ViewModel.ActiveTab = tab;
         if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
         window.Activate();
+    }
+
+    private void OpenEngineTaskManager()
+    {
+        try { AllTabs().Select(t => t.Core).FirstOrDefault(c => c is not null)?.OpenTaskManagerWindow(); }
+        catch (Exception ex) { _s.Paths.LogError("Engine task manager", ex); }
     }
 
     private async void UnloadSelected()

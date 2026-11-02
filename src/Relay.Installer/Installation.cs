@@ -74,9 +74,9 @@ public static class Installation
     public static void CreateShortcuts(string installDir, bool startMenu, bool desktop)
     {
         var exe = Path.Combine(installDir, "Relay.exe");
-        if (startMenu) ShellLink.Create(StartMenuShortcut, exe, description: "Browse the web with RELAY");
+        if (startMenu) ShellLink.Create(StartMenuShortcut, exe, description: "Browse the web with RELAY", appUserModelId: AppIdentity.InstalledAppId);
         else TryDelete(StartMenuShortcut);
-        if (desktop) ShellLink.Create(DesktopShortcut, exe, description: "Browse the web with RELAY");
+        if (desktop) ShellLink.Create(DesktopShortcut, exe, description: "Browse the web with RELAY", appUserModelId: AppIdentity.InstalledAppId);
         else TryDelete(DesktopShortcut);
     }
 

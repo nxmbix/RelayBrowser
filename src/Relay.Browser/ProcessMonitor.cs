@@ -9,7 +9,10 @@ namespace Relay.Browser;
 public sealed record ProcessRow(int ProcessId, string Name, string Detail, long MemoryBytes, double? CpuPercent, IReadOnlyList<BrowserTab> Tabs, bool IsTab);
 
 /// <summary>Everything RELAY is using right now: its own process plus every WebView2 engine process.</summary>
-public sealed record UsageSnapshot(IReadOnlyList<ProcessRow> Rows, long TotalMemoryBytes, double? TotalCpuPercent, int UnloadedTabs);
+/// <param name="EngineProcesses">WebView2 processes reported by the engine.</param>
+/// <param name="EngineUnderRelay">Of those, how many descend from Relay.exe (Windows Task Manager groups an app by its process tree).</param>
+public sealed record UsageSnapshot(IReadOnlyList<ProcessRow> Rows, long TotalMemoryBytes, double? TotalCpuPercent, int UnloadedTabs,
+    int EngineProcesses, int EngineUnderRelay);
 
 /// <summary>
 /// Measures real memory and CPU per process, the same way Windows Task Manager does (private working set),
@@ -87,13 +90,63 @@ public sealed class ProcessMonitor
             rows.Add(Measure(pid, title, sub, [], false));
         }
 
+        var parents = ParentMap();
+        var enginePids = infos.Select(i => { try { return i.ProcessInfo.ProcessId; } catch { return 0; } }).Where(p => p != 0).Distinct().ToList();
+        var underRelay = enginePids.Count(p => DescendsFrom(p, self, parents));
+
         var alive = rows.Select(r => r.ProcessId).ToHashSet();
         foreach (var gone in _last.Keys.Where(k => !alive.Contains(k)).ToList()) _last.Remove(gone);
 
         var unloaded = tabs.Count(t => !t.IsCreated);
         var total = rows.Sum(r => r.MemoryBytes);
         double? cpu = rows.All(r => r.CpuPercent is null) ? null : Math.Min(100, rows.Sum(r => r.CpuPercent ?? 0));
-        return new UsageSnapshot(rows, total, cpu, unloaded);
+        return new UsageSnapshot(rows, total, cpu, unloaded, enginePids.Count, underRelay);
+    }
+
+    private static bool DescendsFrom(int pid, int ancestor, IReadOnlyDictionary<int, int> parents)
+    {
+        for (var i = 0; i < 16 && parents.TryGetValue(pid, out var parent) && parent != 0 && parent != pid; i++)
+        {
+            if (parent == ancestor) return true;
+            pid = parent;
+        }
+        return false;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct PROCESSENTRY32W
+    {
+        public uint dwSize, cntUsage, th32ProcessID;
+        public IntPtr th32DefaultHeapID;
+        public uint th32ModuleID, cntThreads, th32ParentProcessID;
+        public int pcPriClassBase;
+        public uint dwFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szExeFile;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)] private static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint pid);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern bool Process32FirstW(IntPtr snapshot, ref PROCESSENTRY32W entry);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern bool Process32NextW(IntPtr snapshot, ref PROCESSENTRY32W entry);
+    [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr handle);
+
+    /// <summary>pid → parent pid for every process, from one Toolhelp snapshot (only taken while the task manager is open).</summary>
+    private static Dictionary<int, int> ParentMap()
+    {
+        var map = new Dictionary<int, int>();
+        try
+        {
+            var snap = CreateToolhelp32Snapshot(0x2 /* TH32CS_SNAPPROCESS */, 0);
+            if (snap == IntPtr.Zero || snap == new IntPtr(-1)) return map;
+            try
+            {
+                var e = new PROCESSENTRY32W { dwSize = (uint)Marshal.SizeOf<PROCESSENTRY32W>() };
+                for (var ok = Process32FirstW(snap, ref e); ok; ok = Process32NextW(snap, ref e))
+                    map[(int)e.th32ProcessID] = (int)e.th32ParentProcessID;
+            }
+            finally { CloseHandle(snap); }
+        }
+        catch { }
+        return map;
     }
 
     private static string TabLabel(BrowserTab t) => (t.IsPrivate ? "Private: " : string.Empty) + (string.IsNullOrWhiteSpace(t.Title) ? "Tab" : t.Title);

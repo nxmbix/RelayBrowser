@@ -159,6 +159,14 @@ Relay/
 
 ---
 
+## RELAY in Windows Task Manager
+
+Windows Task Manager (Processes tab) groups a desktop app by its **process tree**: everything started by the process that owns the window is listed under it. RELAY creates one shared WebView2 environment, so the WebView2 browser process is a child of `Relay.exe` and the renderer, GPU and utility processes are its children. They all show up together under **RELAY Browser** (the name comes from `Relay.exe`'s file description). RELAY's own task manager (Shift+Esc) checks this and says if any engine process isn't under RELAY.
+
+* The child rows are named **Microsoft Edge WebView2**, from `msedgewebview2.exe`'s own version info. Windows has no API to rename them or show their type, and WebView2 has no option for it. To see the type of each process, use Shift+Esc → **Engine details** (WebView2's built-in browser task manager) or RELAY's own list.
+* RELAY sets an explicit AppUserModelID (`RELAY.Browser`, or `RELAY.Browser.Portable` for the portable copy) on its process and its shortcuts, so windows, taskbar pins and Start menu entries count as one app. The AppUserModelID only affects the taskbar and shell. It doesn't change how Task Manager groups processes.
+* Nothing is injected, hidden, merged or renamed. WebView2 keeps its normal process separation and sandbox.
+
 ## Security and privacy design
 
 * Chromium's protections stay on: certificate errors are **never** bypassed (the engine's blocking page is kept), SmartScreen is untouched, no command-line flags weaken the engine.
