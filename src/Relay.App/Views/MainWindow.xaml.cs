@@ -845,6 +845,7 @@ public partial class MainWindow : Window
         menu.Items.Add(Item("Developer tools", Icons.Code, () => vm.ActiveTab?.OpenDevTools(), "F12", vm.ActiveTab?.IsCreated == true));
         menu.Items.Add(Item("Task manager", "\uE9D9", () => App.Current.ShowTaskManager(), "Shift+Esc"));
         menu.Items.Add(new Separator());
+        menu.Items.Add(Item("Import browser data…", Icons.Import, () => _ = ImportDialog.ShowAsync(this, _s)));
         menu.Items.Add(Item("Clear browsing data…", Icons.Clear, () => OnClearData(this, new RoutedEventArgs())));
         menu.Items.Add(Item("Settings", Icons.Settings, () => App.Current.ShowSettings()));
         menu.Items.Add(Item("About RELAY", Icons.Info, () => App.Current.ShowSettings("about")));
@@ -1311,40 +1312,15 @@ public partial class MainWindow : Window
             PlacementTarget = (UIElement)sender,
             Placement = PlacementMode.Bottom,
         };
-        menu.Items.Add(Item("Import bookmarks…", Icons.Import, () => _ = ImportBookmarksAsync()));
+        menu.Items.Add(Item("Import from another browser…", Icons.Import, () => _ = ImportDialog.ShowAsync(this, _s)));
+        menu.Items.Add(Item("Import bookmarks file…", Icons.Import, () => _ = ImportBookmarksAsync()));
         menu.Items.Add(Item("Export bookmarks…", Icons.Export, () => _ = ExportBookmarksAsync()));
         menu.IsOpen = true;
     }
 
     private async Task ImportBookmarksAsync()
     {
-        var dlg = new OpenFileDialog
-        {
-            Title = "Import bookmarks",
-            Filter = "Bookmark files (*.html;*.htm)|*.html;*.htm|All files|*.*",
-        };
-        if (dlg.ShowDialog(this) != true) return;
-        try
-        {
-            var info = new FileInfo(dlg.FileName);
-            if (info.Length > 50 * 1024 * 1024) throw new InvalidDataException("The file is too large to be a bookmark export.");
-            var html = await File.ReadAllTextAsync(dlg.FileName);
-            var tree = await Task.Run(() => NetscapeBookmarks.Parse(html));
-            var count = tree.CountBookmarks();
-            if (count == 0)
-            {
-                RelayDialog.Info(this, "No bookmarks found", "That file doesn't contain bookmarks in the standard HTML format that browsers export.", Icons.Warning);
-                return;
-            }
-            var added = await _s.Bookmarks.ImportAsync(tree, $"Imported {DateTime.Now:yyyy-MM-dd}");
-            RelayDialog.Info(this, "Bookmarks imported", $"{added} bookmarks were added to a new folder.", Icons.Check);
-            ViewModel.Sidebar.Panel = SidebarPanel.Bookmarks;
-        }
-        catch (Exception ex)
-        {
-            _s.Paths.LogError("Import bookmarks", ex);
-            RelayDialog.Info(this, "Import failed", ex.Message, Icons.Warning);
-        }
+        if (await ImportDialog.ImportBookmarksFileAsync(this, _s)) ViewModel.Sidebar.Panel = SidebarPanel.Bookmarks;
     }
 
     private async Task ExportBookmarksAsync()
@@ -1664,6 +1640,7 @@ public partial class MainWindow : Window
             new("Downloads", "Sidebar", Icons.Download, "Ctrl+J", () => OpenPanel(SidebarPanel.Downloads)),
             new("Reading list", "Sidebar", Icons.ReadingList, "", () => OpenPanel(SidebarPanel.ReadingList)),
             new("Settings", "RELAY", Icons.Settings, "", () => App.Current.ShowSettings()),
+            new("Import from another browser", "RELAY", Icons.Import, "", () => _ = ImportDialog.ShowAsync(this, _s)),
             new(vm.IsSplit ? "Close split view" : "Split view with a new tab", "Tabs", "\uE89F", "", () => { if (vm.IsSplit) vm.CloseSplit(); else vm.SplitWithNewTab(); }),
             new(vm.VerticalTabs ? "Use horizontal tabs" : "Use vertical tabs", "Tabs", "\uE8A4", "", ToggleVerticalTabs),
             new("Toggle sidebar", "Sidebar", Icons.Sidebar, "Ctrl+Shift+B", ToggleSidebar),

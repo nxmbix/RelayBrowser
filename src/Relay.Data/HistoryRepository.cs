@@ -17,6 +17,38 @@ public sealed class HistoryRepository(RelayDatabase db)
             """, ("$u", url), ("$t", title ?? string.Empty), ("$v", RelayDatabase.ToUnix(DateTime.UtcNow)));
     });
 
+    /// <summary>Merges history from another browser in one transaction. Returns the number of entries written.</summary>
+    public Task<int> ImportAsync(IReadOnlyList<Relay.Core.Import.ImportedVisit> visits) => Task.Run(() =>
+    {
+        using var c = db.Open();
+        using var tx = c.BeginTransaction();
+        using var cmd = c.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = """
+            INSERT INTO history (url, title, visited_at, visit_count) VALUES ($u, $t, $v, $n)
+            ON CONFLICT(url) DO UPDATE SET
+                visited_at = MAX(visited_at, excluded.visited_at),
+                visit_count = MAX(visit_count, excluded.visit_count),
+                title = CASE WHEN title = '' THEN excluded.title ELSE title END;
+            """;
+        var u = cmd.Parameters.Add("$u", Microsoft.Data.Sqlite.SqliteType.Text);
+        var t = cmd.Parameters.Add("$t", Microsoft.Data.Sqlite.SqliteType.Text);
+        var v = cmd.Parameters.Add("$v", Microsoft.Data.Sqlite.SqliteType.Integer);
+        var n = cmd.Parameters.Add("$n", Microsoft.Data.Sqlite.SqliteType.Integer);
+        cmd.Prepare();
+        var count = 0;
+        foreach (var visit in visits)
+        {
+            u.Value = visit.Url;
+            t.Value = visit.Title ?? string.Empty;
+            v.Value = RelayDatabase.ToUnix(visit.VisitedUtc);
+            n.Value = Math.Max(1, visit.VisitCount);
+            count += cmd.ExecuteNonQuery() > 0 ? 1 : 0;
+        }
+        tx.Commit();
+        return count;
+    });
+
     public Task UpdateTitleAsync(string url, string title) => Task.Run(() =>
     {
         if (string.IsNullOrWhiteSpace(title)) return;

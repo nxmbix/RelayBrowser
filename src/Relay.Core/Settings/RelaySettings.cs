@@ -16,6 +16,8 @@ public sealed class RelaySettings
     public string SearchEngineId { get; set; } = "google";
     /// <summary>False until the user picks an engine on the first-run choice screen.</summary>
     public bool SearchEngineChosen { get; set; }
+    /// <summary>The one-time "import from another browser" offer was shown.</summary>
+    public bool ImportOffered { get; set; }
     public string? CustomSearchTemplate { get; set; }
     public bool SearchSuggestions { get; set; } = true;
 

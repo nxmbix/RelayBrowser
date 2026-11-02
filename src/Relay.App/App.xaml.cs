@@ -106,6 +106,7 @@ public partial class App : Application
         Theme.Apply();
         settings.Changed += (_, _) => Theme.Apply();
 
+        var firstRun = !settings.Current.SearchEngineChosen;
         // First run: let the user pick a search engine. Nothing is preselected and the order is shuffled.
         if (!settings.Current.SearchEngineChosen)
         {
@@ -141,6 +142,15 @@ public partial class App : Application
             return;
         }
         _ = Services.Downloads.LoadAsync();
+
+        // First run: offer once to copy bookmarks and history from another browser on this PC.
+        if (!settings.Current.ImportOffered)
+        {
+            settings.Update(s => s.ImportOffered = true);
+            var owner = WindowManager.All.FirstOrDefault(w => w.IsVisible);
+            if (owner is not null && firstRun && BrowserImport.Detect().Count > 0)
+                _ = Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() => _ = ImportDialog.ShowAsync(owner, Services, firstRun: true)));
+        }
     }
 
     private void FailStartup(string message)

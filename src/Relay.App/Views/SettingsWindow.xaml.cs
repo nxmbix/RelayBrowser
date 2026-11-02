@@ -76,6 +76,7 @@ public partial class SettingsWindow : Window
 
     private void OnSaveHomepage(object sender, RoutedEventArgs e) => _vm.CommitHomepage();
     private void OnMakeDefaultBrowser(object sender, RoutedEventArgs e) => _vm.MakeDefaultBrowser();
+    private void OnImportData(object sender, RoutedEventArgs e) => _ = ImportDialog.ShowAsync(this, _s);
     private void OnHomepageKey(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) _vm.CommitHomepage(); }
     private void OnSaveCustomEngine(object sender, RoutedEventArgs e) => _vm.CommitCustomEngine();
 
