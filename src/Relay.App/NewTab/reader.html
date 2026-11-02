@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src https: data:; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Reader view</title>
+  <link rel="stylesheet" href="reader.css">
+</head>
+<body data-theme="light" data-font="serif" class="loading">
+  <div class="bar" role="toolbar" aria-label="Reader settings">
+    <button type="button" id="exit" class="chip" title="Leave reader view (Esc)">← Back to page</button>
+    <div class="group" role="group" aria-label="Text size">
+      <button type="button" class="chip" data-size="-1" title="Smaller text" aria-label="Smaller text">A−</button>
+      <button type="button" class="chip" data-size="1" title="Larger text" aria-label="Larger text">A+</button>
+    </div>
+    <div class="group" role="group" aria-label="Font">
+      <button type="button" class="chip" data-font="serif">Serif</button>
+      <button type="button" class="chip" data-font="sans">Sans</button>
+    </div>
+    <div class="group" role="group" aria-label="Colours">
+      <button type="button" class="swatch light" data-theme="light" title="Light" aria-label="Light"></button>
+      <button type="button" class="swatch sepia" data-theme="sepia" title="Sepia" aria-label="Sepia"></button>
+      <button type="button" class="swatch dark" data-theme="dark" title="Dark" aria-label="Dark"></button>
+    </div>
+  </div>
+
+  <article id="article">
+    <p id="site" class="site"></p>
+    <h1 id="title"></h1>
+    <p id="meta" class="meta"></p>
+    <div id="content"></div>
+  </article>
+
+  <p id="empty" class="empty" hidden>The article couldn't be loaded. Go back and try again.</p>
+  <script src="reader.js"></script>
+</body>
+</html>

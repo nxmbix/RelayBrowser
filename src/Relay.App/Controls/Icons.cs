@@ -1,0 +1,60 @@
+namespace Relay.App.Controls;
+
+/// <summary>Glyphs from Segoe Fluent Icons (Windows 11) — same code points exist in Segoe MDL2 Assets (Windows 10).</summary>
+public static class Icons
+{
+    public const string Back = "";
+    public const string Forward = "";
+    public const string Refresh = "";
+    public const string Close = "";
+    public const string Add = "";
+    public const string Home = "";
+    public const string Star = "";
+    public const string StarFilled = "";
+    public const string Download = "";
+    public const string More = "";
+    public const string History = "";
+    public const string Bookmarks = "";
+    public const string ReadingList = "";
+    public const string Settings = "";
+    public const string Lock = "";
+    public const string Warning = "";
+    public const string Info = "";
+    public const string Page = "";
+    public const string Search = "";
+    public const string Folder = "";
+    public const string FolderOpen = "";
+    public const string NewFolder = "";
+    public const string OpenFile = "";
+    public const string Delete = "";
+    public const string Edit = "";
+    public const string Pause = "";
+    public const string Play = "";
+    public const string Private = "";
+    public const string Volume = "";
+    public const string Mute = "";
+    public const string Minimize = "";
+    public const string Maximize = "";
+    public const string Restore = "";
+    public const string ChromeClose = "";
+    public const string Sidebar = "";
+    public const string Import = "";
+    public const string Export = "";
+    public const string Check = "";
+    public const string ZoomIn = "";
+    public const string ZoomOut = "";
+    public const string Print = "";
+    public const string Code = "";
+    public const string NewWindow = "";
+    public const string ChevronLeft = "";
+    public const string ChevronRight = "";
+    public const string Globe = "";
+    public const string Copy = "";
+    public const string Link = "";
+    public const string Clear = "";
+    public const string Retry = "";
+    public const string Duplicate = "";
+    public const string FullScreen = "";
+    public const string Find = "";
+    public const string Exit = "";
+}

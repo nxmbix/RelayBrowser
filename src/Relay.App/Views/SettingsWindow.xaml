@@ -1,0 +1,521 @@
+<Window x:Class="Relay.App.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:Relay.App.Controls"
+        xmlns:vm="clr-namespace:Relay.App.ViewModels"
+        xmlns:s="clr-namespace:Relay.Core.Settings;assembly=Relay.Core"
+        Title="RELAY Settings" Width="920" Height="700" MinWidth="720" MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Brush.Toolbar}"
+        Foreground="{DynamicResource Brush.Text}"
+        FontFamily="{DynamicResource Font.UI}"
+        FontSize="{DynamicResource Font.Size}"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display"
+        Icon="/Assets/relay.ico">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="40" ResizeBorderThickness="6" GlassFrameThickness="1" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <Style x:Key="Row" TargetType="DockPanel">
+            <Setter Property="Margin" Value="0,6"/>
+            <Setter Property="LastChildFill" Value="True"/>
+        </Style>
+        <Style x:Key="Label" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,2,0,6"/>
+        </Style>
+        <Style x:Key="Divider" TargetType="Border">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource Brush.Border}"/>
+            <Setter Property="Margin" Value="0,10"/>
+        </Style>
+        <Style x:Key="NavItem" TargetType="ListBoxItem" BasedOn="{StaticResource ListRow}">
+            <Setter Property="Margin" Value="0,1"/>
+        </Style>
+    </Window.Resources>
+
+    <Border x:Name="RootBorder">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="232"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Navigation -->
+            <Border Background="{DynamicResource Brush.Chrome}">
+                <DockPanel Margin="14,12,14,14">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4,4,0,22">
+                        <Image Source="/Assets/relay.png" Width="24" Height="24" RenderOptions.BitmapScalingMode="HighQuality"/>
+                        <TextBlock Text="Settings" FontSize="16" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <ListBox x:Name="Nav" Style="{StaticResource PlainList}" ItemContainerStyle="{StaticResource NavItem}"
+                             SelectionChanged="OnNavChanged" WindowChrome.IsHitTestVisibleInChrome="True">
+                        <ListBoxItem Tag="general"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Text.Icon}" FontSize="14" Text="{x:Static c:Icons.Settings}" Margin="2,0,12,0"/><TextBlock Text="General"/></StackPanel></ListBoxItem>
+                        <ListBoxItem Tag="appearance"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Text.Icon}" FontSize="14" Text="&#xE790;" Margin="2,0,12,0"/><TextBlock Text="Appearance"/></StackPanel></ListBoxItem>
+                        <ListBoxItem Tag="privacy"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Text.Icon}" FontSize="14" Text="{x:Static c:Icons.Lock}" Margin="2,0,12,0"/><TextBlock Text="Privacy and security"/></StackPanel></ListBoxItem>
+                        <ListBoxItem Tag="blocking"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Text.Icon}" FontSize="14" Text="&#xEA18;" Margin="2,0,12,0"/><TextBlock Text="Ad blocking"/></StackPanel></ListBoxItem>
+                        <ListBoxItem Tag="downloads"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Text.Icon}" FontSize="14" Text="{x:Static c:Icons.Download}" Margin="2,0,12,0"/><TextBlock Text="Downloads"/></StackPanel></ListBoxItem>
+                        <ListBoxItem Tag="about"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Text.Icon}" FontSize="14" Text="{x:Static c:Icons.Info}" Margin="2,0,12,0"/><TextBlock Text="About RELAY"/></StackPanel></ListBoxItem>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- Content -->
+            <Grid Grid.Column="1">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="2"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Style="{StaticResource CaptionButton}" Height="36" Content="{x:Static c:Icons.Minimize}" Click="OnMinimize"/>
+                    <Button Style="{StaticResource CaptionButton.Close}" Height="36" Content="{x:Static c:Icons.ChromeClose}" Click="OnClose"/>
+                </StackPanel>
+
+                <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" Margin="0,40,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Grid Margin="36,0,40,32" MaxWidth="680" HorizontalAlignment="Left">
+
+                        <!-- ================= GENERAL ================= -->
+                        <StackPanel x:Name="SectionGeneral">
+                            <TextBlock Text="General" Style="{StaticResource Text.Title}" Margin="0,0,0,18"/>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="When RELAY starts" Style="{StaticResource Text.Heading}" Margin="0,0,0,8"/>
+                                    <RadioButton Style="{StaticResource Radio}" GroupName="startup" Content="Open the new tab page"
+                                                 IsChecked="{Binding Startup, Converter={StaticResource EnumEquals}, ConverterParameter=NewTabPage}"/>
+                                    <RadioButton Style="{StaticResource Radio}" GroupName="startup" Content="Continue where you left off (restore previous tabs)"
+                                                 IsChecked="{Binding Startup, Converter={StaticResource EnumEquals}, ConverterParameter=RestoreSession}"/>
+                                    <RadioButton Style="{StaticResource Radio}" GroupName="startup" Content="Open the homepage"
+                                                 IsChecked="{Binding Startup, Converter={StaticResource EnumEquals}, ConverterParameter=Homepage}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Homepage" Style="{StaticResource Text.Heading}" Margin="0,0,0,8"/>
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Content="Save" Style="{StaticResource Button.Secondary}" Margin="8,0,0,0" Click="OnSaveHomepage"/>
+                                        <TextBox Style="{StaticResource TextField}" Text="{Binding HomepageText, UpdateSourceTrigger=PropertyChanged}" KeyDown="OnHomepageKey"/>
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding HomepageError}" Foreground="{DynamicResource Brush.Danger}" FontSize="12" Margin="0,6,0,0"
+                                               Visibility="{Binding HomepageError, Converter={StaticResource NullToVis}}"/>
+                                    <Border Style="{StaticResource Divider}"/>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" Content="Show the Home button in the toolbar" IsChecked="{Binding ShowHomeButton}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Search" Style="{StaticResource Text.Heading}" Margin="0,0,0,8"/>
+                                    <DockPanel Style="{StaticResource Row}">
+                                        <ComboBox DockPanel.Dock="Right" Width="220" ItemsSource="{Binding Engines}" SelectedItem="{Binding Engine}" DisplayMemberPath="Name"/>
+                                        <TextBlock Text="Search engine used in the address bar" Style="{StaticResource Label}"/>
+                                    </DockPanel>
+                                    <StackPanel Visibility="{Binding IsCustomEngine, Converter={StaticResource BoolToVis}}" Margin="0,6,0,0">
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="Save" Style="{StaticResource Button.Secondary}" Margin="8,0,0,0" Click="OnSaveCustomEngine"/>
+                                            <TextBox Style="{StaticResource TextField}" Text="{Binding CustomEngineText, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </DockPanel>
+                                        <TextBlock Style="{StaticResource Hint}" Text="Example: https://search.example.com/?q=%s — %s is replaced by what you type."/>
+                                        <TextBlock Text="{Binding CustomEngineError}" Foreground="{DynamicResource Brush.Danger}" FontSize="12"
+                                                   Visibility="{Binding CustomEngineError, Converter={StaticResource NullToVis}}"/>
+                                    </StackPanel>
+                                    <Border Style="{StaticResource Divider}"/>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding SearchSuggestions}">
+                                        <StackPanel>
+                                            <TextBlock Text="Show search suggestions while typing"/>
+                                            <TextBlock Style="{StaticResource Hint}" Text="What you type in the address bar is sent to your search engine to get suggestions."/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Performance" Style="{StaticResource Text.Heading}" Margin="0,0,0,8"/>
+                                    <DockPanel Style="{StaticResource Row}">
+                                        <ComboBox DockPanel.Dock="Right" Width="200" ItemsSource="{Binding SleepOptions}" SelectedItem="{Binding SleepAfter}" DisplayMemberPath="Text"/>
+                                        <StackPanel>
+                                            <TextBlock Text="Put background tabs to sleep" Style="{StaticResource Label}"/>
+                                            <TextBlock Style="{StaticResource Hint}" Text="Sleeping tabs use no CPU and less memory, and wake instantly when you open them. Tabs playing audio stay awake."/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <Border Style="{StaticResource Divider}"/>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" Content="Show a preview when hovering over a tab" IsChecked="{Binding TabHoverPreviews}"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- ================= APPEARANCE ================= -->
+                        <StackPanel x:Name="SectionAppearance" Visibility="Collapsed">
+                            <TextBlock Text="Appearance" Style="{StaticResource Text.Title}" Margin="0,0,0,18"/>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Theme" Style="{StaticResource Text.Heading}" Margin="0,0,0,8"/>
+                                    <RadioButton Style="{StaticResource Radio}" GroupName="theme" Content="Match Windows"
+                                                 IsChecked="{Binding Theme, Converter={StaticResource EnumEquals}, ConverterParameter=System}"/>
+                                    <RadioButton Style="{StaticResource Radio}" GroupName="theme" Content="Light"
+                                                 IsChecked="{Binding Theme, Converter={StaticResource EnumEquals}, ConverterParameter=Light}"/>
+                                    <RadioButton Style="{StaticResource Radio}" GroupName="theme" Content="Dark"
+                                                 IsChecked="{Binding Theme, Converter={StaticResource EnumEquals}, ConverterParameter=Dark}"/>
+                                    <Border Style="{StaticResource Divider}"/>
+                                    <TextBlock Text="Accent colour" Margin="0,0,0,10"/>
+                                    <ListBox ItemsSource="{Binding Accents}" SelectedItem="{Binding Accent}" Background="Transparent" BorderThickness="0"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemsPanel>
+                                            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                        </ListBox.ItemsPanel>
+                                        <ListBox.ItemContainerStyle>
+                                            <Style TargetType="ListBoxItem">
+                                                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ListBoxItem">
+                                                            <StackPanel Margin="0,0,14,0" Width="64" Background="Transparent" Cursor="Hand">
+                                                                <Grid Width="36" Height="36">
+                                                                    <Ellipse x:Name="Ring" Stroke="Transparent" StrokeThickness="2"/>
+                                                                    <Ellipse Width="26" Height="26" Fill="{Binding Brush}"/>
+                                                                </Grid>
+                                                                <TextBlock Text="{Binding Name}" HorizontalAlignment="Center" FontSize="11.5" Margin="0,4,0,0"
+                                                                           Foreground="{DynamicResource Brush.TextSecondary}"/>
+                                                            </StackPanel>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsSelected" Value="True">
+                                                                    <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Brush.Text}"/>
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListBox.ItemContainerStyle>
+                                    </ListBox>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Tabs and sidebar" Style="{StaticResource Text.Heading}" Margin="0,0,0,8"/>
+                                    <RadioButton Style="{StaticResource Radio}" GroupName="density" Content="Comfortable tabs"
+                                                 IsChecked="{Binding TabDensity, Converter={StaticResource EnumEquals}, ConverterParameter=Comfortable}"/>
+                                    <RadioButton Style="{StaticResource Radio}" GroupName="density" Content="Compact tabs"
+                                                 IsChecked="{Binding TabDensity, Converter={StaticResource EnumEquals}, ConverterParameter=Compact}"/>
+                                    <Border Style="{StaticResource Divider}"/>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" Content="Show site icons on tabs" IsChecked="{Binding ShowTabFavicons}" Margin="0,0,0,10"/>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding SidebarEnabled}">
+                                        <StackPanel>
+                                            <TextBlock Text="Show the sidebar"/>
+                                            <TextBlock Style="{StaticResource Hint}" Text="When off, the sidebar is hidden completely. Ctrl+H, Ctrl+J and the toolbar still open panels."/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Fonts and zoom" Style="{StaticResource Text.Heading}" Margin="0,0,0,8"/>
+                                    <DockPanel Style="{StaticResource Row}">
+                                        <ComboBox DockPanel.Dock="Right" Width="220" ItemsSource="{Binding FontChoices}" SelectedItem="{Binding InterfaceFont}"/>
+                                        <TextBlock Text="Interface font" Style="{StaticResource Label}"/>
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource Row}">
+                                        <ComboBox DockPanel.Dock="Right" Width="220" ItemsSource="{Binding FontSizes}" SelectedItem="{Binding InterfaceFontSize}"/>
+                                        <TextBlock Text="Interface text size" Style="{StaticResource Label}"/>
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource Row}">
+                                        <ComboBox DockPanel.Dock="Right" Width="220" ItemsSource="{Binding Zooms}" SelectedItem="{Binding DefaultZoom}" DisplayMemberPath="Text"/>
+                                        <StackPanel>
+                                            <TextBlock Text="Default page zoom" Style="{StaticResource Label}"/>
+                                            <TextBlock Style="{StaticResource Hint}" Text="Applies to new pages. Websites choose their own fonts."/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="New tab page" Style="{StaticResource Text.Heading}" Margin="0,0,0,8"/>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" Content="Clock and date" IsChecked="{Binding NewTabShowClock}" Margin="0,0,0,10"/>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" Content="Recently visited sites" IsChecked="{Binding NewTabShowRecent}" Margin="0,0,0,10"/>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" Content="Bookmarks" IsChecked="{Binding NewTabShowBookmarks}"/>
+                                    <Border Style="{StaticResource Divider}"/>
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                            <Button Content="Choose image…" Style="{StaticResource Button.Secondary}" Click="OnChooseBackground"/>
+                                            <Button Content="Remove" Style="{StaticResource Button.Secondary}" Margin="8,0,0,0" Click="OnClearBackground"/>
+                                        </StackPanel>
+                                        <StackPanel>
+                                            <TextBlock Text="Background" Style="{StaticResource Label}"/>
+                                            <TextBlock Style="{StaticResource Hint}" Text="{Binding BackgroundSummary, StringFormat='Current: {0}'}"/>
+                                            <TextBlock Style="{StaticResource Hint}" Text="More presets are under Customize on the new tab page."/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- ================= PRIVACY ================= -->
+                        <StackPanel x:Name="SectionPrivacy" Visibility="Collapsed">
+                            <TextBlock Text="Privacy and security" Style="{StaticResource Text.Title}" Margin="0,0,0,18"/>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Content="Clear browsing data…" Style="{StaticResource Button.Secondary}" Click="OnClearData"/>
+                                        <StackPanel>
+                                            <TextBlock Text="Browsing data" Style="{StaticResource Text.Heading}"/>
+                                            <TextBlock Style="{StaticResource Hint}" Text="History, cookies, cache, download history and autofill."/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <Border Style="{StaticResource Divider}"/>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ClearDataOnExit}">
+                                        <StackPanel>
+                                            <TextBlock Text="Clear history, cookies and cache when RELAY closes"/>
+                                            <TextBlock Style="{StaticResource Hint}" Text="Previous tabs won't be restored while this is on."/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Passwords and forms" Style="{StaticResource Text.Heading}" Margin="0,0,0,8"/>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding PasswordAutosave}" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <TextBlock Text="Offer to save passwords"/>
+                                            <TextBlock Style="{StaticResource Hint}" Text="Saved passwords are kept by the browser engine, encrypted with your Windows account. RELAY never stores passwords in plain text. Never saved in private windows."/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" Content="Fill in forms automatically (addresses and similar details)" IsChecked="{Binding GeneralAutofill}"/>
+                                    <Border Style="{StaticResource Divider}"/>
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Content="Remove saved passwords" Style="{StaticResource Button.Danger}" Click="OnClearPasswords" VerticalAlignment="Center"/>
+                                        <TextBlock Style="{StaticResource Hint}" Margin="0,0,12,0" Text="The browser engine doesn't let apps list saved passwords, so RELAY can't show them here. For a full password manager, use a dedicated one (such as Bitwarden or 1Password) through its website or app."/>
+                                    </DockPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Private browsing" Style="{StaticResource Text.Heading}" Margin="0,0,0,4"/>
+                                    <TextBlock Style="{StaticResource Hint}" Text="Private windows use a separate session. History, cookies and site data from them are deleted when the last private window closes. Websites, your network and your internet provider can still see your activity."/>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" Content="Allow search suggestions in private windows" IsChecked="{Binding PrivateSearchSuggestions}" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                            <Button Content="Refresh" Style="{StaticResource Button.Secondary}" Click="OnRefreshCookies"/>
+                                            <Button Content="Delete all" Style="{StaticResource Button.Danger}" Margin="8,0,0,0" Click="OnDeleteAllCookies"/>
+                                        </StackPanel>
+                                        <StackPanel>
+                                            <TextBlock Text="Cookies and site data" Style="{StaticResource Text.Heading}"/>
+                                            <TextBlock Style="{StaticResource Hint}" Text="{Binding CookieStatus}"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <TextBox Style="{StaticResource TextField}" Text="{Binding CookieFilter, UpdateSourceTrigger=PropertyChanged}" ToolTip="Filter sites" Margin="0,0,0,8"/>
+                                    <ListBox Style="{StaticResource PlainList}" ItemsSource="{Binding CookieSites}" MaxHeight="240">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:CookieSiteRow}">
+                                                <DockPanel>
+                                                    <Button DockPanel.Dock="Right" Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Delete}"
+                                                            ToolTip="Delete cookies for this site" Click="OnDeleteSiteCookies"/>
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Count, StringFormat={}{0} cookies}" Style="{StaticResource Text.Secondary}"
+                                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                    <TextBlock Text="{Binding Domain}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Site permissions" Style="{StaticResource Text.Heading}"/>
+                                    <TextBlock Style="{StaticResource Hint}" Text="Decisions you asked RELAY to remember. Sites ask again after you remove a decision."/>
+                                    <TextBlock Text="No saved permissions." Foreground="{DynamicResource Brush.TextTertiary}" Margin="0,6,0,0"
+                                               Visibility="{Binding Permissions.Count, Converter={x:Static c:MainWindowConverters.ZeroToVisible}}"/>
+                                    <ItemsControl ItemsSource="{Binding Permissions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:SitePermissionRow}">
+                                                <DockPanel Margin="0,6">
+                                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                                        <Button Content="Allow" Style="{StaticResource Button.Secondary}" Height="28" Tag="allow" Click="OnPermissionChange"/>
+                                                        <Button Content="Block" Style="{StaticResource Button.Secondary}" Height="28" Margin="6,0,0,0" Tag="block" Click="OnPermissionChange"/>
+                                                        <Button Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Delete}" Margin="6,0,0,0" Tag="remove"
+                                                                ToolTip="Forget this decision" Click="OnPermissionChange"/>
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Origin}" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Style="{StaticResource Text.Secondary}">
+                                                            <Run Text="{Binding Kind, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding Decision, Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Security" Style="{StaticResource Text.Heading}" Margin="0,0,0,4"/>
+                                    <TextBlock Style="{StaticResource Hint}" Text="RELAY keeps the engine's protections on: invalid certificates are always blocked, Microsoft Defender SmartScreen checks downloads, and web pages can't reach RELAY's own code. Files that can run programs always ask before they're kept or opened."/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- ================= AD BLOCKING ================= -->
+                        <StackPanel x:Name="SectionBlocking" Visibility="Collapsed">
+                            <TextBlock Text="Ad and tracker blocking" Style="{StaticResource Text.Title}" Margin="0,0,0,18"/>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BlockerEnabled}">
+                                        <StackPanel>
+                                            <TextBlock Text="Block ads and trackers" FontWeight="SemiBold"/>
+                                            <TextBlock Style="{StaticResource Hint}" Text="Stops ad and tracking requests before they load, which also makes pages faster. Turn it off for a single site with the shield in the address bar."/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                    <Border Style="{StaticResource Divider}"/>
+                                    <TextBlock Text="{Binding BlockedTotalText}" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Accent}"/>
+                                    <TextBlock Text="{Binding BlockerStatus}" Style="{StaticResource Hint}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <Button DockPanel.Dock="Right" Content="Update now" Style="{StaticResource Button.Secondary}" Click="OnUpdateLists"/>
+                                        <StackPanel>
+                                            <TextBlock Text="Filter lists" Style="{StaticResource Text.Heading}"/>
+                                            <TextBlock Style="{StaticResource Hint}" Text="Community-maintained lists, refreshed automatically every few days."/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <ItemsControl ItemsSource="{Binding FilterLists}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:FilterListRow}">
+                                                <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding IsEnabled}" Margin="0,6">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Name}"/>
+                                                        <TextBlock Style="{StaticResource Hint}" Margin="0,1,0,0">
+                                                            <Run Text="{Binding Description, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding Updated, Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </CheckBox>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Sites where blocking is off" Style="{StaticResource Text.Heading}"/>
+                                    <TextBlock Text="None. Use the shield in the address bar to turn blocking off for a site." Style="{StaticResource Hint}"
+                                               Visibility="{Binding AllowedSites.Count, Converter={x:Static c:MainWindowConverters.ZeroToVisible}}"/>
+                                    <ItemsControl ItemsSource="{Binding AllowedSites}" Margin="0,6,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,4">
+                                                    <Button DockPanel.Dock="Right" Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Delete}"
+                                                            ToolTip="Turn blocking back on for this site" Click="OnRemoveAllowedSite"/>
+                                                    <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Your own filters" Style="{StaticResource Text.Heading}"/>
+                                    <TextBlock Style="{StaticResource Hint}" Text="One rule per line in Adblock Plus syntax, for example ||ads.example.com^ or example.com##.banner"/>
+                                    <TextBox Text="{Binding CustomRulesText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="NoWrap"
+                                             Height="140" Padding="8" FontFamily="Cascadia Mono, Consolas" FontSize="12" VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Auto" Background="{DynamicResource Brush.Field}" Foreground="{DynamicResource Brush.Text}"
+                                             BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1" Margin="0,6,0,8"/>
+                                    <Button Content="Save filters" Style="{StaticResource Button.Secondary}" HorizontalAlignment="Left" Click="OnSaveCustomRules"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <TextBlock Style="{StaticResource Hint}" Margin="0" Text="RELAY blocks network requests and hides page elements using filter lists. It doesn't run scripts inside websites, so ads served from the same address as a video or page (some YouTube ads, for example) can still appear."/>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- ================= DOWNLOADS ================= -->
+                        <StackPanel x:Name="SectionDownloads" Visibility="Collapsed">
+                            <TextBlock Text="Downloads" Style="{StaticResource Text.Title}" Margin="0,0,0,18"/>
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                            <Button Content="Open" Style="{StaticResource Button.Secondary}" Click="OnOpenDownloadFolder"/>
+                                            <Button Content="Change…" Style="{StaticResource Button.Secondary}" Margin="8,0,0,0" Click="OnChangeDownloadFolder"/>
+                                        </StackPanel>
+                                        <StackPanel>
+                                            <TextBlock Text="Location" Style="{StaticResource Text.Heading}"/>
+                                            <TextBlock Text="{Binding DownloadDirectory}" Style="{StaticResource Hint}" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <Border Style="{StaticResource Divider}"/>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" Content="Ask where to save each file" IsChecked="{Binding AskWhereToSave}" Margin="0,0,0,10"/>
+                                    <CheckBox Style="{StaticResource ToggleSwitch}" Content="Show a notice when downloads start and finish" IsChecked="{Binding DownloadNotifications}"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- ================= ABOUT ================= -->
+                        <StackPanel x:Name="SectionAbout" Visibility="Collapsed">
+                            <TextBlock Text="About RELAY" Style="{StaticResource Text.Title}" Margin="0,0,0,18"/>
+                            <Border Style="{StaticResource Card}">
+                                <DockPanel>
+                                    <Image DockPanel.Dock="Left" Source="/Assets/relay.png" Width="56" Height="56" Margin="0,0,18,0" VerticalAlignment="Top"
+                                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <StackPanel>
+                                        <TextBlock Text="RELAY" FontSize="18" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding AppVersion, StringFormat='Version {0}'}" Style="{StaticResource Text.Secondary}" Margin="0,2,0,12"/>
+                                        <TextBlock Style="{StaticResource Text.Secondary}"><Run Text="Browser engine: Microsoft Edge WebView2 "/><Run Text="{Binding EngineVersion, Mode=OneWay}"/></TextBlock>
+                                        <TextBlock Style="{StaticResource Text.Secondary}"><Run Text="WebView2 SDK: "/><Run Text="{Binding SdkVersion, Mode=OneWay}"/></TextBlock>
+                                        <TextBlock Style="{StaticResource Text.Secondary}"><Run Text=".NET runtime: "/><Run Text="{Binding DotNetVersion, Mode=OneWay}"/></TextBlock>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="Open folder" Style="{StaticResource Button.Secondary}" Click="OnOpenDataFolder" VerticalAlignment="Center"/>
+                                    <StackPanel>
+                                        <TextBlock Text="Your data" Style="{StaticResource Text.Heading}"/>
+                                        <TextBlock Text="{Binding StorageMode}" Style="{StaticResource Hint}"/>
+                                        <TextBlock Text="{Binding DataFolder}" Style="{StaticResource Hint}" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Open-source licenses and acknowledgements" Style="{StaticResource Text.Heading}" Margin="0,0,0,8"/>
+                                    <TextBox Text="{Binding Licenses, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" Height="260" Padding="10"
+                                             FontFamily="Cascadia Mono, Consolas" FontSize="11.5" VerticalScrollBarVisibility="Auto"
+                                             Background="{DynamicResource Brush.Field}" Foreground="{DynamicResource Brush.TextSecondary}"
+                                             BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

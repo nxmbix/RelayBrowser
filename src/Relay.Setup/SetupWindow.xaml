@@ -1,0 +1,218 @@
+<Window x:Class="Relay.Setup.SetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="RELAY Setup" Width="812" Height="532"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent" ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen" FontFamily="{StaticResource Text}" Foreground="{StaticResource Ink}"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Display" Icon="pack://application:,,,/Assets/relay.png">
+
+    <Border Margin="16" CornerRadius="18" Background="White">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="6" Direction="270" Opacity="0.28" Color="#0B1A17"/>
+        </Border.Effect>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="268"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ============ Brand panel ============ -->
+            <Border CornerRadius="18,0,0,18" ClipToBounds="True" MouseLeftButtonDown="OnDrag">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0.4,1">
+                        <GradientStop Color="#238676" Offset="0"/>
+                        <GradientStop Color="#1A6C60" Offset="0.55"/>
+                        <GradientStop Color="#13544B" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Grid>
+                    <!-- Faint echo of the logo's curve -->
+                    <Canvas IsHitTestVisible="False" Opacity="0.10">
+                        <Path Stroke="White" StrokeThickness="34" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M 40,560 C 40,330 150,220 330,220"/>
+                        <Path Stroke="White" StrokeThickness="2" Data="M -20,470 C 40,300 160,170 320,140"/>
+                        <Ellipse Width="70" Height="70" Fill="White" Canvas.Left="6" Canvas.Top="470"/>
+                    </Canvas>
+
+                    <DockPanel Margin="30,30,26,26">
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                            <Border Width="38" Height="38" CornerRadius="11" Background="#26FFFFFF">
+                                <Image Source="pack://application:,,,/Assets/relay.png" Width="30" Height="30" RenderOptions.BitmapScalingMode="HighQuality"/>
+                            </Border>
+                            <TextBlock Text="RELAY" Foreground="White" FontFamily="{StaticResource Display}" FontSize="15" FontWeight="SemiBold"
+                                       Margin="12,0,0,0" VerticalAlignment="Center">
+                                <TextBlock.LayoutTransform><ScaleTransform ScaleX="1"/></TextBlock.LayoutTransform>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <StackPanel DockPanel.Dock="Bottom">
+                            <TextBlock x:Name="VersionText" Foreground="#B3FFFFFF" FontSize="12"/>
+                            <TextBlock Text="Installs just for you · no admin needed" Foreground="#8CFFFFFF" FontSize="12" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel x:Name="Steps" VerticalAlignment="Center" Margin="0,0,0,20"/>
+                    </DockPanel>
+                </Grid>
+            </Border>
+
+            <!-- ============ Content ============ -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <DockPanel Background="Transparent" MouseLeftButtonDown="OnDrag" Height="44">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,8,10,0" VerticalAlignment="Top">
+                        <Button Style="{StaticResource WindowButton}" Content="&#xE921;" Click="OnMinimize" ToolTip="Minimize"/>
+                        <Button x:Name="CloseButton" Style="{StaticResource WindowButton}" Content="&#xE8BB;" Click="OnCloseClick" ToolTip="Close"/>
+                    </StackPanel>
+                    <Border/>
+                </DockPanel>
+
+                <Grid x:Name="Pages" Grid.Row="1" Margin="44,0,44,36">
+
+                    <!-- ===== Welcome ===== -->
+                    <DockPanel x:Name="PageWelcome">
+                        <DockPanel DockPanel.Dock="Bottom">
+                            <Button x:Name="WelcomeInstall" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Install" Click="OnInstall" IsDefault="True"/>
+                            <Button Style="{StaticResource LinkButton}" Content="Install options" Click="OnShowOptions" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <StackPanel>
+                            <TextBlock x:Name="WelcomeTitle" Text="Welcome to RELAY" FontFamily="{StaticResource Display}" FontSize="30" FontWeight="SemiBold"/>
+                            <TextBlock Text="A calm, fast web browser for Windows." Foreground="{StaticResource Muted}" FontSize="15" Margin="0,6,0,0"/>
+
+                            <Border x:Name="UpdateBanner" Background="{StaticResource TealSoft}" CornerRadius="10" Padding="14,10" Margin="0,18,0,0" Visibility="Collapsed">
+                                <TextBlock x:Name="UpdateText" TextWrapping="Wrap" Foreground="#155E54" FontSize="13"/>
+                            </Border>
+
+                            <StackPanel Margin="0,26,0,0">
+                                <DockPanel Margin="0,0,0,16">
+                                    <Border Style="{StaticResource FeatureIcon}"><TextBlock Text="&#xEA18;" FontFamily="{StaticResource Icons}" FontSize="17" Foreground="{StaticResource Teal}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Blocks ads and trackers" FontWeight="SemiBold" FontSize="14"/>
+                                        <TextBlock Text="Pages load faster and follow you less." Foreground="{StaticResource Muted}" FontSize="13"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,16">
+                                    <Border Style="{StaticResource FeatureIcon}"><TextBlock Text="&#xE8A4;" FontFamily="{StaticResource Icons}" FontSize="17" Foreground="{StaticResource Teal}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Tabs that stay organised" FontWeight="SemiBold" FontSize="14"/>
+                                        <TextBlock Text="Groups, split view, vertical tabs and Ctrl+K." Foreground="{StaticResource Muted}" FontSize="13"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <DockPanel>
+                                    <Border Style="{StaticResource FeatureIcon}"><TextBlock Text="&#xE708;" FontFamily="{StaticResource Icons}" FontSize="17" Foreground="{StaticResource Teal}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Light on your PC" FontWeight="SemiBold" FontSize="14"/>
+                                        <TextBlock Text="Background tabs sleep to save memory." Foreground="{StaticResource Muted}" FontSize="13"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- ===== Options ===== -->
+                    <DockPanel x:Name="PageOptions" Visibility="Collapsed">
+                        <DockPanel DockPanel.Dock="Bottom">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Install" Click="OnInstall" Margin="12,0,0,0"/>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource Secondary}" Content="Back" Click="OnBackToWelcome"/>
+                            <Border/>
+                        </DockPanel>
+                        <StackPanel>
+                            <TextBlock Text="Install options" FontFamily="{StaticResource Display}" FontSize="26" FontWeight="SemiBold"/>
+                            <TextBlock Text="Everything stays inside your own user account." Foreground="{StaticResource Muted}" FontSize="14" Margin="0,6,0,22"/>
+
+                            <TextBlock Text="Location" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8"/>
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource Secondary}" Height="40" MinWidth="96" Content="Browse…" Margin="10,0,0,0" Click="OnBrowse"/>
+                                <TextBox x:Name="LocationBox" Style="{StaticResource FieldBox}" TextChanged="OnLocationChanged"/>
+                            </DockPanel>
+                            <TextBlock x:Name="SpaceText" Foreground="{StaticResource Faint}" FontSize="12" Margin="2,8,0,18"/>
+
+                            <Border Height="1" Background="{StaticResource Line}" Margin="0,0,0,10"/>
+                            <CheckBox x:Name="StartMenuCheck" Style="{StaticResource Toggle}" Content="Add to the Start menu" IsChecked="True"/>
+                            <CheckBox x:Name="DesktopCheck" Style="{StaticResource Toggle}" Content="Add a desktop shortcut" IsChecked="True"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- ===== RELAY is running ===== -->
+                    <DockPanel x:Name="PageRunning" Visibility="Collapsed">
+                        <DockPanel DockPanel.Dock="Bottom">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Close RELAY and continue" Click="OnCloseRunningAndInstall" Margin="12,0,0,0"/>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource Secondary}" Content="Back" Click="OnBackToWelcome"/>
+                            <Border/>
+                        </DockPanel>
+                        <StackPanel VerticalAlignment="Center">
+                            <Border Width="56" Height="56" CornerRadius="28" Background="{StaticResource TealSoft}" HorizontalAlignment="Left">
+                                <TextBlock Text="&#xE946;" FontFamily="{StaticResource Icons}" FontSize="22" Foreground="{StaticResource Teal}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="RELAY is open" FontFamily="{StaticResource Display}" FontSize="26" FontWeight="SemiBold" Margin="0,18,0,8"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="14" LineHeight="21"
+                                       Text="Setup needs to close it to update the files. Your tabs come back when RELAY restarts if “Continue where you left off” is turned on."/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- ===== Installing ===== -->
+                    <DockPanel x:Name="PageProgress" Visibility="Collapsed">
+                        <DockPanel DockPanel.Dock="Bottom">
+                            <Button x:Name="CancelButton" DockPanel.Dock="Right" Style="{StaticResource Secondary}" Content="Cancel" Click="OnCancel"/>
+                            <Border/>
+                        </DockPanel>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="ProgressTitle" Text="Installing RELAY" FontFamily="{StaticResource Display}" FontSize="26" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="PercentText" Text="0%" FontFamily="{StaticResource Display}" FontSize="56" FontWeight="Light"
+                                       Foreground="{StaticResource Teal}" Margin="0,18,0,6"/>
+                            <ProgressBar x:Name="Progress" Style="{StaticResource Bar}" Minimum="0" Maximum="1"/>
+                            <TextBlock x:Name="StatusText" Text="Preparing…" Foreground="{StaticResource Muted}" FontSize="13.5" Margin="0,14,0,2"/>
+                            <TextBlock x:Name="FileText" Foreground="{StaticResource Faint}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- ===== Done ===== -->
+                    <DockPanel x:Name="PageDone" Visibility="Collapsed">
+                        <DockPanel DockPanel.Dock="Bottom">
+                            <Button x:Name="OpenButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Open RELAY" Click="OnOpenRelay" Margin="12,0,0,0" IsDefault="True"/>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource Secondary}" Content="Close" Click="OnFinishClose"/>
+                            <Border/>
+                        </DockPanel>
+                        <StackPanel VerticalAlignment="Center">
+                            <Grid x:Name="Check" Width="64" Height="64" HorizontalAlignment="Left" RenderTransformOrigin="0.5,0.5">
+                                <Grid.RenderTransform><ScaleTransform x:Name="CheckScale" ScaleX="0.4" ScaleY="0.4"/></Grid.RenderTransform>
+                                <Ellipse Fill="{StaticResource Teal}"/>
+                                <Path Data="M 19,33 L 28,42 L 46,23" Stroke="White" StrokeThickness="4.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                            </Grid>
+                            <TextBlock x:Name="DoneTitle" Text="RELAY is ready" FontFamily="{StaticResource Display}" FontSize="28" FontWeight="SemiBold" Margin="0,20,0,8"/>
+                            <TextBlock x:Name="DoneText" TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="14" LineHeight="21"
+                                       Text="Find it in the Start menu or on your desktop. To remove it later, use Settings → Apps."/>
+                            <Border x:Name="RuntimeNote" Background="#FFF6E5" CornerRadius="10" Padding="14,10" Margin="0,18,0,0" Visibility="Collapsed">
+                                <StackPanel>
+                                    <TextBlock TextWrapping="Wrap" Foreground="#7A4B00" FontSize="13"
+                                               Text="RELAY uses the Microsoft Edge WebView2 Runtime, which wasn't found. It's free and usually installs without admin rights."/>
+                                    <Button Style="{StaticResource LinkButton}" Content="Get WebView2 from Microsoft" Margin="0,6,0,0" HorizontalAlignment="Left" Click="OnGetRuntime"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- ===== Error ===== -->
+                    <DockPanel x:Name="PageError" Visibility="Collapsed">
+                        <DockPanel DockPanel.Dock="Bottom">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Try again" Click="OnInstall" Margin="12,0,0,0"/>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource Secondary}" Content="Close" Click="OnFinishClose"/>
+                            <Border/>
+                        </DockPanel>
+                        <StackPanel VerticalAlignment="Center">
+                            <Border Width="56" Height="56" CornerRadius="28" Background="#FBEAE8" HorizontalAlignment="Left">
+                                <TextBlock Text="&#xE7BA;" FontFamily="{StaticResource Icons}" FontSize="22" Foreground="{StaticResource Danger}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="Setup couldn't finish" FontFamily="{StaticResource Display}" FontSize="26" FontWeight="SemiBold" Margin="0,18,0,8"/>
+                            <TextBlock x:Name="ErrorText" TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="14" LineHeight="21"/>
+                            <TextBlock x:Name="ErrorDetail" TextWrapping="Wrap" Foreground="{StaticResource Faint}" FontSize="12" Margin="0,10,0,0"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

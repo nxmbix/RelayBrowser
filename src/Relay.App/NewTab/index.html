@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https://assets.relay data:; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>New tab</title>
+  <link rel="stylesheet" href="newtab.css">
+</head>
+<body class="loading">
+  <div id="backdrop" aria-hidden="true"></div>
+
+  <main id="page">
+    <header class="brand">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="1" y="1" width="30" height="30" rx="9" class="mark-bg"/>
+        <path d="M9 21.5c0-6 4-10 10-10h4" class="mark-stroke"/>
+        <path d="M19.5 7.5l4 4-4 4" class="mark-stroke"/>
+        <circle cx="10" cy="22" r="2.2" class="mark-dot"/>
+      </svg>
+      <span class="wordmark">RELAY</span>
+      <span id="private-badge" class="badge" hidden>Private</span>
+    </header>
+
+    <section id="clock" class="clock" hidden>
+      <div id="time" class="time"></div>
+      <div id="date" class="date"></div>
+    </section>
+
+    <form id="search" class="search" autocomplete="off">
+      <svg viewBox="0 0 24 24" class="search-icon" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
+      <input id="q" type="text" spellcheck="false" aria-label="Search or enter address" placeholder="Search or enter address">
+      <kbd class="hint">Enter</kbd>
+    </form>
+
+    <p id="blocked" class="blocked" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+      <span id="blocked-text"></span>
+    </p>
+
+    <section class="links" aria-label="Quick links">
+      <ol id="quick-links" class="tiles"></ol>
+    </section>
+
+    <section id="private-note" class="note" hidden>
+      <h2>You're browsing privately</h2>
+      <p>RELAY won't save your history, cookies or site data from this window after you close it. Downloads and bookmarks you create are kept.</p>
+      <p class="muted">Private browsing doesn't make you anonymous. Websites, your employer or school, and your internet provider can still see what you do.</p>
+    </section>
+
+    <section id="lists" class="lists">
+      <div id="recent-block" class="list-block" hidden>
+        <h2>Recently visited</h2>
+        <ul id="recent" class="rows"></ul>
+      </div>
+      <div id="bookmarks-block" class="list-block" hidden>
+        <h2>Bookmarks</h2>
+        <ul id="bookmarks" class="rows"></ul>
+      </div>
+    </section>
+  </main>
+
+  <button id="customize" class="customize" type="button" aria-haspopup="dialog">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+    Customize
+  </button>
+
+  <aside id="panel" class="panel" role="dialog" aria-label="Customize new tab" hidden>
+    <h2>Customize</h2>
+    <h3>Background</h3>
+    <div id="swatches" class="swatches"></div>
+    <button type="button" class="link" data-settings="appearance">Use your own image…</button>
+    <h3>Show</h3>
+    <label class="toggle"><input type="checkbox" data-toggle="clock"><span>Clock and date</span></label>
+    <label class="toggle"><input type="checkbox" data-toggle="recent"><span>Recently visited</span></label>
+    <label class="toggle"><input type="checkbox" data-toggle="bookmarks"><span>Bookmarks</span></label>
+    <button type="button" class="link" data-settings="general">All settings</button>
+  </aside>
+
+  <div id="dialog-scrim" class="scrim" hidden>
+    <form id="link-dialog" class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+      <h2 id="dlg-title">Add shortcut</h2>
+      <label>Name<input id="dlg-name" type="text" maxlength="120" spellcheck="false"></label>
+      <label>URL<input id="dlg-url" type="text" maxlength="2048" spellcheck="false" placeholder="example.com"></label>
+      <p id="dlg-error" class="error" hidden></p>
+      <div class="actions">
+        <button type="button" id="dlg-cancel" class="btn">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+  </div>
+
+  <ul id="tile-menu" class="menu" role="menu" hidden>
+    <li><button type="button" role="menuitem" data-action="edit">Edit shortcut</button></li>
+    <li><button type="button" role="menuitem" data-action="remove">Remove</button></li>
+  </ul>
+
+  <script src="newtab.js"></script>
+</body>
+</html>

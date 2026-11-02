@@ -1,0 +1,1144 @@
+<Window x:Class="Relay.App.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:Relay.App.Controls"
+        xmlns:vm="clr-namespace:Relay.App.ViewModels"
+        xmlns:b="clr-namespace:Relay.Browser;assembly=Relay.Browser"
+        Title="RELAY" Width="1280" Height="820" MinWidth="640" MinHeight="420"
+        Background="{DynamicResource Brush.Chrome}"
+        Foreground="{DynamicResource Brush.Text}"
+        FontFamily="{DynamicResource Font.UI}"
+        FontSize="{DynamicResource Font.Size}"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display"
+        Icon="/Assets/relay.ico">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome x:Name="Chrome" CaptionHeight="44" ResizeBorderThickness="6" GlassFrameThickness="1"
+                      CornerRadius="0" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <!-- ===== Tab ===== -->
+        <DataTemplate x:Key="TabTemplate" DataType="{x:Type b:BrowserTab}">
+            <Border x:Name="TabRoot" Height="{DynamicResource Tab.Height}" Margin="2,0" CornerRadius="9"
+                    Background="Transparent" VerticalAlignment="Center" SnapsToDevicePixels="True"
+                    WindowChrome.IsHitTestVisibleInChrome="True" RenderTransformOrigin="0.5,1">
+                <Border.RenderTransform>
+                    <ScaleTransform x:Name="TabScale"/>
+                </Border.RenderTransform>
+                <Grid Margin="10,0,5,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Grid x:Name="IconBox" Width="16" Height="16" Margin="0,0,8,0"
+                          Visibility="{Binding DataContext.ShowTabFavicons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
+                        <Control Focusable="False">
+                            <Control.Style>
+                                <Style TargetType="Control" BasedOn="{StaticResource Spinner}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Control.Style>
+                        </Control>
+                        <Image Source="{Binding Favicon}" Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality">
+                            <Image.Style>
+                                <Style TargetType="Image">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Favicon}" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Image.Style>
+                        </Image>
+                        <TextBlock Style="{StaticResource Text.Icon}" FontSize="14" Foreground="{DynamicResource Brush.TextTertiary}"
+                                   Text="{x:Static c:Icons.Globe}">
+                            <TextBlock.Visibility>
+                                <MultiBinding Converter="{x:Static c:MainWindowConverters.PlaceholderIcon}">
+                                    <Binding Path="IsLoading"/>
+                                    <Binding Path="Favicon"/>
+                                </MultiBinding>
+                            </TextBlock.Visibility>
+                        </TextBlock>
+                    </Grid>
+
+                    <TextBlock x:Name="TabTitle" Grid.Column="1" Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12.5"/>
+
+                    <Button Grid.Column="2" Style="{StaticResource IconButton.Small}" Width="22" Height="22" Margin="2,0,0,0"
+                            Click="OnTabMuteClick" ToolTip="Mute or unmute this tab">
+                        <Button.Visibility>
+                            <MultiBinding Converter="{x:Static c:MainWindowConverters.AnyTrue}">
+                                <Binding Path="IsPlayingAudio"/>
+                                <Binding Path="IsMuted"/>
+                            </MultiBinding>
+                        </Button.Visibility>
+                        <TextBlock>
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="{x:Static c:Icons.Volume}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMuted}" Value="True">
+                                            <Setter Property="Text" Value="{x:Static c:Icons.Mute}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Button>
+
+                    <Button x:Name="CloseTabButton" Grid.Column="3" Style="{StaticResource IconButton.Small}" Width="22" Height="22"
+                            FontSize="10" Margin="2,0,0,0" Visibility="Hidden" Content="{x:Static c:Icons.Close}"
+                            ToolTip="Close tab (Ctrl+W)" Click="OnTabCloseClick"/>
+
+                    <Border Grid.ColumnSpan="4" VerticalAlignment="Bottom" Height="2.5" Margin="-4,0,1,1" CornerRadius="1.25"
+                            Background="{Binding Group.Brush}" Visibility="{Binding Group, Converter={StaticResource NullToVis}}"/>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsNew}" Value="True">
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="TabRoot" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.16"/>
+                                <DoubleAnimation Storyboard.TargetName="TabScale" Storyboard.TargetProperty="ScaleY" From="0.6" To="1" Duration="0:0:0.18">
+                                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSleeping}" Value="True">
+                    <Setter TargetName="IconBox" Property="Opacity" Value="0.45"/>
+                    <Setter TargetName="TabTitle" Property="Opacity" Value="0.65"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSplitVisible}" Value="True">
+                    <Setter TargetName="TabRoot" Property="Background" Value="{DynamicResource Brush.Hover}"/>
+                    <Setter TargetName="TabTitle" Property="Foreground" Value="{DynamicResource Brush.Text}"/>
+                </DataTrigger>
+                <Trigger SourceName="TabRoot" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="TabRoot" Property="Background" Value="{DynamicResource Brush.Hover}"/>
+                    <Setter TargetName="CloseTabButton" Property="Visibility" Value="Visible"/>
+                </Trigger>
+                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                    <Setter TargetName="TabRoot" Property="Background" Value="{DynamicResource Brush.TabActive}"/>
+                    <Setter TargetName="TabTitle" Property="Foreground" Value="{DynamicResource Brush.Text}"/>
+                    <Setter TargetName="CloseTabButton" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="TabRoot" Property="Effect">
+                        <Setter.Value>
+                            <DropShadowEffect BlurRadius="6" ShadowDepth="1" Direction="270" Opacity="0.12" Color="Black"/>
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- ===== Tab group header (horizontal strip) ===== -->
+        <DataTemplate x:Key="GroupHeaderTemplate" DataType="{x:Type b:TabGroup}">
+            <Border x:Name="GroupRoot" Height="24" Margin="4,0,2,0" Padding="9,0" CornerRadius="12" VerticalAlignment="Center"
+                    Background="{Binding Brush}" Cursor="Hand" WindowChrome.IsHitTestVisibleInChrome="True"
+                    ToolTip="Click to collapse or expand this group" MouseLeftButtonUp="OnGroupHeaderClick">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding DisplayName}" Foreground="White" FontSize="12" FontWeight="SemiBold" MaxWidth="140"
+                               TextTrimming="CharacterEllipsis" Visibility="{Binding DisplayName, Converter={StaticResource NullToVis}}"/>
+                    <Ellipse x:Name="Dot" Width="8" Height="8" Fill="White" Visibility="Collapsed"/>
+                    <TextBlock x:Name="CountText" Text="{Binding Count}" Foreground="White" FontSize="11" Opacity="0.85" Margin="6,0,0,0" Visibility="Collapsed"/>
+                </StackPanel>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding DisplayName}" Value="">
+                    <Setter TargetName="Dot" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsCollapsed}" Value="True">
+                    <Setter TargetName="CountText" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="GroupRoot" Property="Opacity" Value="0.85"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- ===== Vertical tab ===== -->
+        <DataTemplate x:Key="VTabTemplate" DataType="{x:Type b:BrowserTab}">
+            <Border x:Name="Row" Height="34" Margin="6,1" CornerRadius="8" Background="Transparent" Padding="9,0,4,0"
+                    ToolTip="{Binding Title}" ToolTipService.InitialShowDelay="700">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="3" Margin="-9,7,6,7" CornerRadius="1.5" HorizontalAlignment="Left" Background="{Binding Group.Brush}"
+                            Visibility="{Binding Group, Converter={StaticResource NullToVis}}"/>
+                    <Grid Width="16" Height="16" Margin="0,0,10,0" HorizontalAlignment="Left">
+                        <Control Focusable="False">
+                            <Control.Style>
+                                <Style TargetType="Control" BasedOn="{StaticResource Spinner}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Control.Style>
+                        </Control>
+                        <Image Source="{Binding Favicon}" Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality">
+                            <Image.Style>
+                                <Style TargetType="Image">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Image.Style>
+                        </Image>
+                        <TextBlock Style="{StaticResource Text.Icon}" FontSize="14" Foreground="{DynamicResource Brush.TextTertiary}" Text="{x:Static c:Icons.Globe}">
+                            <TextBlock.Visibility>
+                                <MultiBinding Converter="{x:Static c:MainWindowConverters.PlaceholderIcon}">
+                                    <Binding Path="IsLoading"/>
+                                    <Binding Path="Favicon"/>
+                                </MultiBinding>
+                            </TextBlock.Visibility>
+                        </TextBlock>
+                    </Grid>
+                    <TextBlock x:Name="VTitle" Grid.Column="1" Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12.5"
+                               Visibility="{Binding DataContext.VerticalTabsCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisInverted}}"/>
+                    <Button x:Name="VClose" Grid.Column="2" Style="{StaticResource IconButton.Small}" Width="22" Height="22" FontSize="10"
+                            Content="{x:Static c:Icons.Close}" Visibility="Hidden" Click="OnTabCloseClick" ToolTip="Close tab (Ctrl+W)"/>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource Brush.Hover}"/>
+                    <Setter TargetName="VClose" Property="Visibility" Value="Visible"/>
+                </Trigger>
+                <DataTrigger Binding="{Binding IsSplitVisible}" Value="True">
+                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource Brush.Hover}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource Brush.AccentSubtle}"/>
+                    <Setter TargetName="VTitle" Property="Foreground" Value="{DynamicResource Brush.Text}"/>
+                    <Setter TargetName="VClose" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DataContext.VerticalTabsCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                    <Setter TargetName="VClose" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSleeping}" Value="True">
+                    <Setter TargetName="VTitle" Property="Opacity" Value="0.6"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- ===== Vertical group header ===== -->
+        <DataTemplate x:Key="VGroupHeaderTemplate" DataType="{x:Type b:TabGroup}">
+            <Border Margin="6,8,6,2" Padding="10,5" CornerRadius="8" Background="{Binding SubtleBrush}" Cursor="Hand"
+                    MouseLeftButtonUp="OnGroupHeaderClick" ToolTip="Click to collapse or expand this group">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" FontSize="10" Foreground="{Binding Brush}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Icon}">
+                                <Setter Property="Text" Value="&#xE70D;"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsCollapsed}" Value="True">
+                                        <Setter Property="Text" Value="&#xE76C;"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <Ellipse Width="9" Height="9" Fill="{Binding Brush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                               Visibility="{Binding DataContext.VerticalTabsCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisInverted}}"/>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
+        <c:StripTemplateSelector x:Key="StripSelector" TabTemplate="{StaticResource TabTemplate}" GroupTemplate="{StaticResource GroupHeaderTemplate}"/>
+        <c:StripTemplateSelector x:Key="VStripSelector" TabTemplate="{StaticResource VTabTemplate}" GroupTemplate="{StaticResource VGroupHeaderTemplate}"/>
+
+        <!-- ===== Command palette item ===== -->
+        <DataTemplate x:Key="PaletteItemTemplate" DataType="{x:Type vm:PaletteItem}">
+            <Grid Height="36">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="34"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Style="{StaticResource Text.Icon}" FontSize="14" Text="{Binding Glyph}" Foreground="{DynamicResource Brush.TextSecondary}"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" MaxWidth="360"/>
+                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Secondary}" Margin="10,0,0,0" MaxWidth="200"/>
+                </StackPanel>
+                <TextBlock Grid.Column="2" Text="{Binding Gesture}" Style="{StaticResource Text.Secondary}" Margin="12,0,6,0" VerticalAlignment="Center"/>
+            </Grid>
+        </DataTemplate>
+
+        <!-- ===== Web content host (one per tab, never reordered) ===== -->
+        <DataTemplate x:Key="HostTemplate" DataType="{x:Type b:BrowserTab}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border x:Name="PaneBar" Height="3" Background="{DynamicResource Brush.Border}" Visibility="Collapsed"/>
+                <ContentControl Grid.Row="1" Content="{Binding WebView}" Focusable="False"
+                                Visibility="{Binding ShowWebView, Converter={StaticResource BoolToVisHidden}}"/>
+                <Grid Grid.Row="1" Background="{DynamicResource Brush.Toolbar}" Visibility="{Binding ShowCrashPanel, Converter={StaticResource BoolToVis}}">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="420">
+                        <Border Width="56" Height="56" CornerRadius="16" Background="{DynamicResource Brush.SurfaceAlt}" HorizontalAlignment="Left">
+                            <TextBlock Style="{StaticResource Text.Icon}" FontSize="24" Text="{x:Static c:Icons.Warning}" Foreground="{DynamicResource Brush.TextSecondary}"/>
+                        </Border>
+                        <TextBlock Text="{Binding CrashTitle}" Style="{StaticResource Text.Title}" Margin="0,18,0,8"/>
+                        <TextBlock Text="{Binding CrashMessage}" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSecondary}" LineHeight="20"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
+                            <Button Content="Reload" Style="{StaticResource Button.Primary}" Click="OnCrashReloadClick"/>
+                            <Button Content="Close tab" Style="{StaticResource Button.Secondary}" Margin="8,0,0,0" Click="OnTabCloseClick"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding SplitSide}" Value="1">
+                    <Setter TargetName="PaneBar" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding SplitSide}" Value="2">
+                    <Setter TargetName="PaneBar" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsActive}" Value="True"/>
+                        <Condition Binding="{Binding SplitSide, Converter={x:Static c:MainWindowConverters.IsNonZero}}" Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter TargetName="PaneBar" Property="Background" Value="{DynamicResource Brush.Accent}"/>
+                </MultiDataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- ===== Address bar suggestion ===== -->
+        <DataTemplate x:Key="SuggestionTemplate" DataType="{x:Type vm:Suggestion}">
+            <Grid Height="34">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="32"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Style="{StaticResource Text.Icon}" FontSize="13" Text="{Binding Glyph}" Foreground="{DynamicResource Brush.TextTertiary}"/>
+                <TextBlock Grid.Column="1" Text="{Binding Primary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="520"/>
+                <TextBlock Grid.Column="2" Text="{Binding Secondary}" Margin="10,0,0,0" VerticalAlignment="Center"
+                           Style="{StaticResource Text.Secondary}"/>
+            </Grid>
+        </DataTemplate>
+
+        <!-- ===== Download row (sidebar + notice) ===== -->
+        <DataTemplate x:Key="DownloadTemplate" DataType="{x:Type b:DownloadItem}">
+            <Grid Margin="0,2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Border Width="34" Height="34" CornerRadius="9" Background="{DynamicResource Brush.SurfaceAlt}" Margin="0,0,10,0" VerticalAlignment="Top">
+                    <TextBlock FontSize="15" Foreground="{DynamicResource Brush.TextSecondary}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Icon}">
+                                <Setter Property="Text" Value="{x:Static c:Icons.Page}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                        <Setter Property="Text" Value="{x:Static c:Icons.Warning}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                        <Setter Property="Text" Value="{x:Static c:Icons.Download}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding FilePath}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                        <Setter Property="TextDecorations" Value="Strikethrough"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <ProgressBar Style="{StaticResource ThinProgress}" Margin="0,5,0,4" Maximum="1" Value="{Binding Progress, Mode=OneWay}"
+                                 IsIndeterminate="{Binding IsIndeterminate, Mode=OneWay}">
+                        <ProgressBar.Visibility>
+                            <MultiBinding Converter="{x:Static c:MainWindowConverters.AnyTrue}">
+                                <Binding Path="IsActive"/>
+                                <Binding Path="IsPaused"/>
+                            </MultiBinding>
+                        </ProgressBar.Visibility>
+                    </ProgressBar>
+                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Secondary}" FontSize="11.5"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                    <Button Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Pause}" ToolTip="Pause" Tag="pause" Click="OnDownloadAction"
+                            Visibility="{Binding CanPause, Converter={StaticResource BoolToVis}}"/>
+                    <Button Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Play}" ToolTip="Resume" Tag="resume" Click="OnDownloadAction"
+                            Visibility="{Binding CanResume, Converter={StaticResource BoolToVis}}"/>
+                    <Button Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Close}" ToolTip="Cancel" Tag="cancel" Click="OnDownloadAction"
+                            Visibility="{Binding CanCancel, Converter={StaticResource BoolToVis}}"/>
+                    <Button Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Retry}" ToolTip="Try again" Tag="retry" Click="OnDownloadAction"
+                            Visibility="{Binding CanRetry, Converter={StaticResource BoolToVis}}"/>
+                    <Button Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.OpenFile}" ToolTip="Open file" Tag="open" Click="OnDownloadAction"
+                            Visibility="{Binding IsCompleted, Converter={StaticResource BoolToVis}}"/>
+                    <Button Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.FolderOpen}" ToolTip="Show in folder" Tag="folder" Click="OnDownloadAction"
+                            Visibility="{Binding IsCompleted, Converter={StaticResource BoolToVis}}"/>
+                    <Button Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Delete}" ToolTip="Remove from list" Tag="remove" Click="OnDownloadAction">
+                        <Button.Visibility>
+                            <MultiBinding Converter="{x:Static c:MainWindowConverters.AnyTrue}">
+                                <Binding Path="IsCompleted"/>
+                                <Binding Path="IsFailed"/>
+                            </MultiBinding>
+                        </Button.Visibility>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Rail button -->
+        <Style x:Key="RailButton" TargetType="ToggleButton" BasedOn="{StaticResource IconButton}">
+            <Setter Property="Width" Value="38"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Margin" Value="0,2"/>
+        </Style>
+    </Window.Resources>
+
+    <Border x:Name="RootBorder">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- ================= Tab strip (title bar) ================= -->
+            <Grid x:Name="StripRow" Height="{DynamicResource Strip.Height}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Border x:Name="PrivateBadge" Margin="10,0,4,0" Padding="9,4" CornerRadius="8" VerticalAlignment="Center"
+                        Background="#33A48BF0" Visibility="{Binding IsPrivate, Converter={StaticResource BoolToVis}}"
+                        ToolTip="Private window: history, cookies and site data are deleted when you close it.">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource Text.Icon}" FontSize="13" Foreground="#CBBDFF" Text="{x:Static c:Icons.Private}"/>
+                        <TextBlock Text="Private" Margin="6,0,0,0" Foreground="#E3DAFF" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Grid.Column="1" Text="{Binding ActiveTab.Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                           Margin="14,0" Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12.5" IsHitTestVisible="False"
+                           Visibility="{Binding VerticalTabs, Converter={StaticResource BoolToVis}}"/>
+                <DockPanel x:Name="StripHost" Grid.Column="1" LastChildFill="False" Margin="6,0,0,0"
+                           Visibility="{Binding HorizontalTabs, Converter={StaticResource BoolToVis}}">
+                    <ItemsControl x:Name="TabsList" DockPanel.Dock="Left" ItemsSource="{Binding StripItems}"
+                                  ItemTemplateSelector="{StaticResource StripSelector}" Focusable="False"
+                                  PreviewMouseLeftButtonDown="OnTabsMouseDown" PreviewMouseMove="OnTabsMouseMove"
+                                  PreviewMouseLeftButtonUp="OnTabsMouseUp" PreviewMouseUp="OnTabsMiddleUp"
+                                  MouseRightButtonUp="OnTabsRightClick" MouseWheel="OnTabsMouseWheel"
+                                  MouseEnter="OnTabsMouseEnter" MouseLeave="OnTabsMouseLeave"
+                                  WindowChrome.IsHitTestVisibleInChrome="True">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <c:TabStripPanel MaxTabWidth="{DynamicResource Tab.MaxWidth}" MinTabWidth="40" ClipToBounds="True"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                    <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Width="30" Height="30" Margin="4,0,0,0" FontSize="13"
+                            Content="{x:Static c:Icons.Add}" Command="{Binding NewTabCommand}" ToolTip="New tab (Ctrl+T)"
+                            WindowChrome.IsHitTestVisibleInChrome="True"/>
+                </DockPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Style="{StaticResource CaptionButton}" Content="{x:Static c:Icons.Minimize}" Click="OnMinimize" ToolTip="Minimize"/>
+                    <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Content="{x:Static c:Icons.Maximize}" Click="OnMaximize" ToolTip="Maximize"/>
+                    <Button Style="{StaticResource CaptionButton.Close}" Content="{x:Static c:Icons.ChromeClose}" Click="OnCloseWindow" ToolTip="Close"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- ================= Toolbar ================= -->
+            <Border x:Name="Toolbar" Grid.Row="1" Background="{DynamicResource Brush.Toolbar}" BorderBrush="{DynamicResource Brush.Border}"
+                    BorderThickness="0,0,0,1" Padding="8,6">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource IconButton}" Content="{x:Static c:Icons.Back}" Command="{Binding BackCommand}"
+                                IsEnabled="{Binding ActiveTab.CanGoBack, FallbackValue=False}" ToolTip="Back (Alt+Left)"/>
+                        <Button Style="{StaticResource IconButton}" Content="{x:Static c:Icons.Forward}" Command="{Binding ForwardCommand}"
+                                IsEnabled="{Binding ActiveTab.CanGoForward, FallbackValue=False}" ToolTip="Forward (Alt+Right)"/>
+                        <Button Style="{StaticResource IconButton}" Command="{Binding ReloadOrStopCommand}" ToolTip="Reload (Ctrl+R)">
+                            <TextBlock>
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{x:Static c:Icons.Refresh}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ActiveTab.IsLoading}" Value="True">
+                                                <Setter Property="Text" Value="{x:Static c:Icons.Close}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Button>
+                        <Button Style="{StaticResource IconButton}" Content="{x:Static c:Icons.Home}" Command="{Binding HomeCommand}" ToolTip="Home"
+                                Visibility="{Binding ShowHomeButton, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+
+                    <!-- Address bar -->
+                    <Border x:Name="Omnibox" Grid.Column="1" Height="36" Margin="8,0" CornerRadius="18"
+                            Background="{DynamicResource Brush.Field}" BorderBrush="Transparent" BorderThickness="1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="SiteInfoButton" Style="{StaticResource IconButton.Small}" Width="28" Height="28" Margin="4,0,0,0" FontSize="12.5"
+                                    Click="OnSiteInfoClick" ToolTip="View site information"
+                                    Content="{Binding ActiveTab.Security, Converter={StaticResource SecurityGlyph}}"/>
+                            <TextBox x:Name="AddressBox" Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="4,0"
+                                     VerticalContentAlignment="Center" Foreground="{DynamicResource Brush.Text}"
+                                     CaretBrush="{DynamicResource Brush.Text}" SelectionBrush="{DynamicResource Brush.Accent}"
+                                     FontSize="14" FocusVisualStyle="{x:Null}" AutomationProperties.Name="Address and search bar"
+                                     PreviewKeyDown="OnAddressKeyDown" TextChanged="OnAddressTextChanged"
+                                     GotKeyboardFocus="OnAddressGotFocus" LostKeyboardFocus="OnAddressLostFocus"
+                                     PreviewMouseLeftButtonDown="OnAddressMouseDown">
+                                <TextBox.Template>
+                                    <ControlTemplate TargetType="TextBox">
+                                        <Grid>
+                                            <TextBlock x:Name="Placeholder" Text="Search or enter address" Foreground="{DynamicResource Brush.TextTertiary}"
+                                                       VerticalAlignment="Center" Margin="6,0,0,0" IsHitTestVisible="False" Visibility="Collapsed"/>
+                                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"
+                                                          HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" Focusable="False"/>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="Text" Value="">
+                                                <Setter TargetName="Placeholder" Property="Visibility" Value="Visible"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </TextBox.Template>
+                            </TextBox>
+                            <Button Grid.Column="2" Height="24" Padding="8,0" Margin="0,0,2,0" Click="OnZoomChipClick" ToolTip="Reset zoom"
+                                    Visibility="{Binding IsZoomed, Converter={StaticResource BoolToVis}}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Bd" CornerRadius="12" Background="{DynamicResource Brush.Hover}" Padding="{TemplateBinding Padding}">
+                                            <TextBlock Text="{Binding ZoomText}" FontSize="11.5" VerticalAlignment="Center" Foreground="{DynamicResource Brush.TextSecondary}"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.Pressed}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                            <Button x:Name="ReaderButton" Grid.Column="3" Style="{StaticResource IconButton.Small}" Width="28" Height="28" FontSize="14"
+                                    Click="OnReaderClick" ToolTip="Reader view (F9)">
+                                <Button.Visibility>
+                                    <MultiBinding Converter="{x:Static c:MainWindowConverters.ReaderVisible}">
+                                        <Binding Path="ActiveTab.Security"/>
+                                        <Binding Path="ActiveTab.IsReaderPage" FallbackValue="False"/>
+                                    </MultiBinding>
+                                </Button.Visibility>
+                                <TextBlock Text="&#xE736;">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ActiveTab.IsReaderPage}" Value="True">
+                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Button>
+                            <Button x:Name="ShieldButton" Grid.Column="4" Style="{StaticResource IconButton.Small}" Width="34" Height="28" FontSize="14"
+                                    Click="OnShieldClick" ToolTip="Ad and tracker blocking">
+                                <Button.Visibility>
+                                    <MultiBinding Converter="{x:Static c:MainWindowConverters.ShieldVisible}">
+                                        <Binding Path="ActiveTab.IsNewTabPage" FallbackValue="True"/>
+                                        <Binding Path="ActiveTab.Security"/>
+                                    </MultiBinding>
+                                </Button.Visibility>
+                                <Grid>
+                                    <TextBlock Text="&#xEA18;" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ActiveTab.IsBlockingActive}" Value="True">
+                                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,-3" MinWidth="14" Height="13" Padding="3,0"
+                                            CornerRadius="6.5" Background="{DynamicResource Brush.Accent}"
+                                            Visibility="{Binding ActiveTab.BlockedCount, Converter={StaticResource PositiveToVis}, FallbackValue=Collapsed}">
+                                        <TextBlock Text="{Binding ActiveTab.BlockedCount, Converter={x:Static c:MainWindowConverters.CompactCount}}"
+                                                   FontFamily="{DynamicResource Font.UI}" FontSize="9" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Brush.AccentText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </Grid>
+                            </Button>
+                            <Button x:Name="StarButton" Grid.Column="5" Style="{StaticResource IconButton.Small}" Width="28" Height="28" Margin="0,0,4,0" FontSize="14"
+                                    Click="OnStarClick" ToolTip="Bookmark this page (Ctrl+D)">
+                                <TextBlock>
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="{x:Static c:Icons.Star}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsBookmarked}" Value="True">
+                                                    <Setter Property="Text" Value="{x:Static c:Icons.StarFilled}"/>
+                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <Button Style="{StaticResource IconButton}" Content="{x:Static c:Icons.ReadingList}" Click="OnAddToReadingList"
+                                ToolTip="Add to reading list"/>
+                        <Grid>
+                            <Button x:Name="DownloadsButton" Style="{StaticResource IconButton}" Content="{x:Static c:Icons.Download}"
+                                    Click="OnDownloadsClick" ToolTip="Downloads (Ctrl+J)"/>
+                            <Border Width="7" Height="7" CornerRadius="3.5" Background="{DynamicResource Brush.Accent}" IsHitTestVisible="False"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"
+                                    Visibility="{Binding ActiveDownloads, Converter={StaticResource PositiveToVis}}"/>
+                        </Grid>
+                        <Button Style="{StaticResource IconButton}" Content="{x:Static c:Icons.Sidebar}" Click="OnToggleSidebar"
+                                ToolTip="Sidebar (Ctrl+Shift+B)"/>
+                        <Button x:Name="MenuButton" Style="{StaticResource IconButton}" Content="{x:Static c:Icons.More}" Click="OnMenuClick"
+                                ToolTip="Settings and more (Alt+F)"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ================= Content ================= -->
+            <Grid Grid.Row="2" Background="{DynamicResource Brush.Toolbar}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Vertical tabs -->
+                <Border x:Name="VerticalTabsPanel" Width="248" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,1,0"
+                        Background="{DynamicResource Brush.Chrome}" Visibility="{Binding VerticalTabs, Converter={StaticResource BoolToVis}}">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Top" Margin="6,8,6,4" Height="34" HorizontalContentAlignment="Left" Click="OnVerticalNewTab"
+                                ToolTip="New tab (Ctrl+T)">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" CornerRadius="8" Background="Transparent" Padding="10,0">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Style="{StaticResource Text.Icon}" FontSize="13" Text="{x:Static c:Icons.Add}" Foreground="{DynamicResource Brush.TextSecondary}"/>
+                                            <TextBlock Text="New tab" Margin="12,0,0,0" Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12.5"
+                                                       Visibility="{Binding VerticalTabsCollapsed, Converter={StaticResource BoolToVisInverted}}"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.Hover}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="8,4,8,8" Style="{StaticResource IconButton}" Width="32" Height="32"
+                                FontSize="13" Click="OnToggleVerticalCollapse" ToolTip="Collapse or expand the tab list">
+                            <TextBlock>
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{x:Static c:Icons.ChevronLeft}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding VerticalTabsCollapsed}" Value="True">
+                                                <Setter Property="Text" Value="{x:Static c:Icons.ChevronRight}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Button>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                            <ItemsControl x:Name="VTabsList" ItemsSource="{Binding StripItems}" ItemTemplateSelector="{StaticResource VStripSelector}"
+                                          Focusable="False" Margin="0,0,0,8"
+                                          PreviewMouseLeftButtonDown="OnTabsMouseDown" PreviewMouseMove="OnTabsMouseMove"
+                                          PreviewMouseLeftButtonUp="OnTabsMouseUp" PreviewMouseUp="OnTabsMiddleUp"
+                                          MouseRightButtonUp="OnTabsRightClick"/>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+
+                <!-- Sidebar rail -->
+                <Border x:Name="Rail" Grid.Column="1" Width="50" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,1,0"
+                        Visibility="{Binding SidebarEnabled, Converter={StaticResource BoolToVis}}">
+                    <DockPanel Margin="0,8">
+                        <Button DockPanel.Dock="Bottom" Style="{StaticResource IconButton}" Width="38" Height="38"
+                                Content="{x:Static c:Icons.Settings}" Click="OnOpenSettings" ToolTip="Settings"/>
+                        <StackPanel HorizontalAlignment="Center">
+                            <ToggleButton Style="{StaticResource RailButton}" Content="{x:Static c:Icons.Bookmarks}" ToolTip="Bookmarks"
+                                          Tag="Bookmarks" Click="OnRailClick"
+                                          IsChecked="{Binding Sidebar.Panel, Mode=TwoWay, Converter={StaticResource EnumMatch}, ConverterParameter=Bookmarks}"/>
+                            <ToggleButton Style="{StaticResource RailButton}" Content="{x:Static c:Icons.History}" ToolTip="History (Ctrl+H)"
+                                          Tag="History" Click="OnRailClick"
+                                          IsChecked="{Binding Sidebar.Panel, Mode=TwoWay, Converter={StaticResource EnumMatch}, ConverterParameter=History}"/>
+                            <ToggleButton Style="{StaticResource RailButton}" Content="{x:Static c:Icons.Download}" ToolTip="Downloads (Ctrl+J)"
+                                          Tag="Downloads" Click="OnRailClick"
+                                          IsChecked="{Binding Sidebar.Panel, Mode=TwoWay, Converter={StaticResource EnumMatch}, ConverterParameter=Downloads}"/>
+                            <ToggleButton Style="{StaticResource RailButton}" Content="{x:Static c:Icons.ReadingList}" ToolTip="Reading list"
+                                          Tag="ReadingList" Click="OnRailClick"
+                                          IsChecked="{Binding Sidebar.Panel, Mode=TwoWay, Converter={StaticResource EnumMatch}, ConverterParameter=ReadingList}"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- Sidebar panel -->
+                <Border x:Name="SidePanel" Grid.Column="2" Width="330" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,1,0"
+                        Background="{DynamicResource Brush.Toolbar}"
+                        Visibility="{Binding Sidebar.IsOpen, Converter={StaticResource BoolToVis}}">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="16,12,10,6">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Close}"
+                                    Click="OnCloseSidePanel" ToolTip="Close panel"/>
+                            <TextBlock Text="{Binding Sidebar.PanelTitle}" Style="{StaticResource Text.Heading}" FontSize="15" VerticalAlignment="Center"/>
+                        </DockPanel>
+
+                        <Grid>
+                            <!-- Bookmarks -->
+                            <DockPanel Visibility="{Binding Sidebar.Panel, Converter={StaticResource EnumToVis}, ConverterParameter=Bookmarks}" Margin="10,0,10,10">
+                                <TextBox DockPanel.Dock="Top" Style="{StaticResource TextField}" Margin="0,4,0,8" ToolTip="Search bookmarks"
+                                         Text="{Binding Sidebar.Bookmarks.Query, UpdateSourceTrigger=PropertyChanged}"/>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                                    <Button DockPanel.Dock="Left" Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.ChevronLeft}"
+                                            Click="OnBookmarksUp" ToolTip="Up one folder" Margin="0,0,4,0"
+                                            Visibility="{Binding Sidebar.Bookmarks.CanGoUp, Converter={StaticResource BoolToVis}}"/>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <Button Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Add}" ToolTip="Bookmark current page" Click="OnBookmarkCurrent"/>
+                                        <Button Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.NewFolder}" ToolTip="New folder" Click="OnNewBookmarkFolder"/>
+                                        <Button Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.More}" ToolTip="Import and export" Click="OnBookmarksMore"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Sidebar.Bookmarks.FolderTitle}" VerticalAlignment="Center" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Brush.TextSecondary}"/>
+                                </DockPanel>
+                                <Grid>
+                                    <TextBlock Text="Nothing here yet. Press Ctrl+D to bookmark a page." TextWrapping="Wrap" Margin="8,12"
+                                               Foreground="{DynamicResource Brush.TextTertiary}"
+                                               Visibility="{Binding Sidebar.Bookmarks.IsEmpty, Converter={StaticResource BoolToVis}}"/>
+                                    <ListBox x:Name="BookmarksList" Style="{StaticResource PlainList}" ItemsSource="{Binding Sidebar.Bookmarks.Rows}"
+                                             MouseDoubleClick="OnBookmarkActivate" KeyDown="OnBookmarkKey" MouseUp="OnBookmarkMiddle"
+                                             ContextMenuOpening="OnBookmarkContextMenu">
+                                        <ListBox.ContextMenu>
+                                            <ContextMenu/>
+                                        </ListBox.ContextMenu>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:BookmarkRow}">
+                                                <Grid ToolTip="{Binding Url}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="28"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Image Source="{Binding Favicon}" Width="16" Height="16" HorizontalAlignment="Left"
+                                                           Visibility="{Binding Favicon, Converter={StaticResource NullToVis}}"/>
+                                                    <TextBlock HorizontalAlignment="Left" FontSize="14" Foreground="{DynamicResource Brush.TextSecondary}">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Icon}">
+                                                                <Setter Property="Text" Value="{x:Static c:Icons.Globe}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsFolder}" Value="True">
+                                                                        <Setter Property="Text" Value="{x:Static c:Icons.Folder}"/>
+                                                                    </DataTrigger>
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding IsFolder}" Value="False"/>
+                                                                            <Condition Binding="{Binding Favicon, Converter={x:Static c:MainWindowConverters.IsNotNull}}" Value="True"/>
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    </MultiDataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Secondary}" FontSize="11.5"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Grid>
+                            </DockPanel>
+
+                            <!-- History -->
+                            <DockPanel Visibility="{Binding Sidebar.Panel, Converter={StaticResource EnumToVis}, ConverterParameter=History}" Margin="10,0,10,10">
+                                <TextBox DockPanel.Dock="Top" Style="{StaticResource TextField}" Margin="0,4,0,8" ToolTip="Search history"
+                                         Text="{Binding Sidebar.History.Query, UpdateSourceTrigger=PropertyChanged}"/>
+                                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Content="Clear browsing data…" Style="{StaticResource Button.Secondary}" Click="OnClearData"/>
+                                    <Button Content="Load more" Style="{StaticResource Button.Secondary}" Margin="8,0,0,0" Click="OnHistoryMore"
+                                            Visibility="{Binding Sidebar.History.CanLoadMore, Converter={StaticResource BoolToVis}}"/>
+                                </StackPanel>
+                                <Grid>
+                                    <TextBlock Text="Pages you visit will appear here." Margin="8,12" Foreground="{DynamicResource Brush.TextTertiary}"
+                                               Visibility="{Binding Sidebar.History.IsEmpty, Converter={StaticResource BoolToVis}}"/>
+                                    <ListBox x:Name="HistoryList" Style="{StaticResource PlainList}" ItemsSource="{Binding Sidebar.History.View}"
+                                             VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                             MouseDoubleClick="OnHistoryActivate" KeyDown="OnHistoryKey" MouseUp="OnHistoryMiddle"
+                                             ContextMenuOpening="OnHistoryContextMenu">
+                                        <ListBox.ContextMenu>
+                                            <ContextMenu/>
+                                        </ListBox.ContextMenu>
+                                        <ListBox.GroupStyle>
+                                            <GroupStyle>
+                                                <GroupStyle.HeaderTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Caption}" Margin="8,12,0,4"/>
+                                                    </DataTemplate>
+                                                </GroupStyle.HeaderTemplate>
+                                            </GroupStyle>
+                                        </ListBox.GroupStyle>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:HistoryRow}">
+                                                <Grid ToolTip="{Binding Url}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="28"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Image Source="{Binding Favicon}" Width="16" Height="16" HorizontalAlignment="Left"/>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding Host}" Style="{StaticResource Text.Secondary}" FontSize="11.5"/>
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Time}" Style="{StaticResource Text.Secondary}" FontSize="11.5"
+                                                               VerticalAlignment="Top" Margin="8,1,0,0"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Grid>
+                            </DockPanel>
+
+                            <!-- Downloads -->
+                            <DockPanel Visibility="{Binding Sidebar.Panel, Converter={StaticResource EnumToVis}, ConverterParameter=Downloads}" Margin="10,4,10,10">
+                                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Content="Open folder" Style="{StaticResource Button.Secondary}" Click="OnOpenDownloadsFolder"/>
+                                    <Button Content="Clear list" Style="{StaticResource Button.Secondary}" Margin="8,0,0,0" Click="OnClearDownloads"/>
+                                </StackPanel>
+                                <Grid>
+                                    <TextBlock Text="Files you download will appear here." Margin="8,12" Foreground="{DynamicResource Brush.TextTertiary}"
+                                               Visibility="{Binding Sidebar.Downloads.Items.Count, Converter={x:Static c:MainWindowConverters.ZeroToVisible}}"/>
+                                    <ListBox Style="{StaticResource PlainList}" ItemsSource="{Binding Sidebar.Downloads.Items}"
+                                             ItemTemplate="{StaticResource DownloadTemplate}"/>
+                                </Grid>
+                            </DockPanel>
+
+                            <!-- Reading list -->
+                            <DockPanel Visibility="{Binding Sidebar.Panel, Converter={StaticResource EnumToVis}, ConverterParameter=ReadingList}" Margin="10,4,10,10">
+                                <Button DockPanel.Dock="Top" HorizontalAlignment="Left" Content="Add current page" Style="{StaticResource Button.Secondary}"
+                                        Margin="0,0,0,8" Click="OnAddToReadingList"/>
+                                <Grid>
+                                    <TextBlock Text="Save pages to read later. They stay here until you remove them." TextWrapping="Wrap" Margin="8,12"
+                                               Foreground="{DynamicResource Brush.TextTertiary}"
+                                               Visibility="{Binding Sidebar.ReadingList.IsEmpty, Converter={StaticResource BoolToVis}}"/>
+                                    <ListBox x:Name="ReadingList" Style="{StaticResource PlainList}" ItemsSource="{Binding Sidebar.ReadingList.Rows}"
+                                             MouseDoubleClick="OnReadingActivate" KeyDown="OnReadingKey">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:ReadingRow}">
+                                                <Grid ToolTip="{Binding Url}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="28"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Image Source="{Binding Favicon}" Width="16" Height="16" HorizontalAlignment="Left"/>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock x:Name="T" Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding Host}" Style="{StaticResource Text.Secondary}" FontSize="11.5"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                        <Button Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Check}" ToolTip="Mark as read / unread"
+                                                                Click="OnReadingToggle"/>
+                                                        <Button Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Delete}" ToolTip="Remove"
+                                                                Click="OnReadingRemove"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRead}" Value="True">
+                                                        <Setter TargetName="T" Property="Foreground" Value="{DynamicResource Brush.TextTertiary}"/>
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Grid>
+                            </DockPanel>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+
+                <!-- Web content (two panes in split view) -->
+                <Grid x:Name="ContentArea" Grid.Column="3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="0"/>
+                        <ColumnDefinition Width="0"/>
+                    </Grid.ColumnDefinitions>
+                    <ItemsControl x:Name="ContentHost" Grid.ColumnSpan="3" ItemsSource="{Binding HostedTabs}" Focusable="False"
+                                  ItemTemplate="{StaticResource HostTemplate}" PreviewGotKeyboardFocus="OnContentFocus">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="0"/>
+                                        <ColumnDefinition Width="0"/>
+                                    </Grid.ColumnDefinitions>
+                                </Grid>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                                <Setter Property="Grid.Column" Value="0"/>
+                                <Setter Property="Grid.ColumnSpan" Value="3"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SplitSide}" Value="1">
+                                        <Setter Property="Grid.ColumnSpan" Value="1"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding SplitSide}" Value="2">
+                                        <Setter Property="Grid.Column" Value="2"/>
+                                        <Setter Property="Grid.ColumnSpan" Value="1"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                    </ItemsControl>
+                    <GridSplitter x:Name="SplitHandle" Grid.Column="1" Width="8" HorizontalAlignment="Stretch" ResizeBehavior="PreviousAndNext"
+                                  Background="{DynamicResource Brush.Chrome}" Visibility="Collapsed" Cursor="SizeWE" Focusable="False"
+                                  DragDelta="OnSplitDrag" DragCompleted="OnSplitDrag" ToolTip="Drag to resize · double-click to make both sides equal"
+                                  MouseDoubleClick="OnSplitReset">
+                        <GridSplitter.Template>
+                            <ControlTemplate TargetType="GridSplitter">
+                                <Border Background="{TemplateBinding Background}">
+                                    <Border Width="3" Height="36" CornerRadius="1.5" Background="{DynamicResource Brush.BorderStrong}"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </GridSplitter.Template>
+                    </GridSplitter>
+                </Grid>
+            </Grid>
+            <!-- ================= Popups (own windows, so they draw above web content) ================= -->
+            <Popup x:Name="PalettePopup" PlacementTarget="{Binding ElementName=RootBorder}" Placement="Relative" AllowsTransparency="True"
+                   StaysOpen="False" PopupAnimation="Fade" Closed="OnPaletteClosed">
+                <Border Style="{StaticResource PopupSurface}" Width="620" Padding="8">
+                    <StackPanel>
+                        <Grid Margin="4,2,4,6">
+                            <TextBlock Style="{StaticResource Text.Icon}" FontSize="15" Text="{x:Static c:Icons.Search}" HorizontalAlignment="Left"
+                                       Foreground="{DynamicResource Brush.TextTertiary}" Margin="6,0,0,0"/>
+                            <TextBox x:Name="PaletteBox" Style="{StaticResource TextField}" Height="40" FontSize="15" Padding="30,0,8,0"
+                                     Background="Transparent" BorderThickness="0" TextChanged="OnPaletteTextChanged" PreviewKeyDown="OnPaletteKey"
+                                     AutomationProperties.Name="Command palette"/>
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource Brush.Border}" Margin="-8,0,-8,6"/>
+                        <ListBox x:Name="PaletteList" Style="{StaticResource PlainList}" ItemTemplate="{StaticResource PaletteItemTemplate}"
+                                 MaxHeight="400" PreviewMouseLeftButtonUp="OnPaletteClick">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem" BasedOn="{StaticResource ListRow}">
+                                    <Setter Property="Focusable" Value="False"/>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                        <TextBlock Text="↑↓ to choose · Enter to run · Esc to close" Style="{StaticResource Text.Secondary}" FontSize="11" Margin="8,6,0,2"/>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <Popup x:Name="ToastPopup" PlacementTarget="{Binding ElementName=RootBorder}" Placement="Relative" AllowsTransparency="True"
+                   StaysOpen="True" PopupAnimation="Fade" Focusable="False">
+                <Border Style="{StaticResource PopupSurface}" Width="340" Padding="14,12">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Close}" VerticalAlignment="Top"
+                                Click="OnToastClose"/>
+                        <Border DockPanel.Dock="Left" Width="32" Height="32" CornerRadius="9" Background="{DynamicResource Brush.AccentSubtle}" Margin="0,0,12,0" VerticalAlignment="Top">
+                            <TextBlock x:Name="ToastGlyph" Style="{StaticResource Text.Icon}" FontSize="14" Foreground="{DynamicResource Brush.Accent}"/>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock x:Name="ToastTitle" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="ToastText" Style="{StaticResource Text.Secondary}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                            <StackPanel x:Name="ToastActions" Orientation="Horizontal" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+            </Popup>
+
+            <Popup x:Name="QrPopup" PlacementTarget="{Binding ElementName=SiteInfoButton}" Placement="Bottom" AllowsTransparency="True"
+                   StaysOpen="False" PopupAnimation="Fade" HorizontalOffset="-8">
+                <Border Style="{StaticResource PopupSurface}" Width="300" Padding="18,16">
+                    <StackPanel>
+                        <TextBlock Text="Scan to open on your phone" Style="{StaticResource Text.Heading}"/>
+                        <Border Background="White" CornerRadius="10" Padding="10" Margin="0,12,0,10" HorizontalAlignment="Center">
+                            <Image x:Name="QrImage" Width="220" Height="220" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                        </Border>
+                        <TextBlock x:Name="QrUrl" Style="{StaticResource Text.Secondary}" TextTrimming="CharacterEllipsis"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Content="Copy link" Style="{StaticResource Button.Secondary}" Click="OnQrCopy"/>
+                            <Button Content="Save image" Style="{StaticResource Button.Secondary}" Margin="8,0,0,0" Click="OnQrSave"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <Popup x:Name="TabPreviewPopup" Placement="Bottom" AllowsTransparency="True" StaysOpen="True" IsHitTestVisible="False"
+                   PopupAnimation="Fade" VerticalOffset="2" Focusable="False">
+                <Border Style="{StaticResource PopupSurface}" Width="296" Padding="0" Margin="0,2,12,16">
+                    <StackPanel>
+                        <Border x:Name="PreviewImageBox" CornerRadius="12,12,0,0" Height="166" ClipToBounds="True" Background="{DynamicResource Brush.SurfaceAlt}">
+                            <Image x:Name="PreviewImage" Stretch="UniformToFill" VerticalAlignment="Top" RenderOptions.BitmapScalingMode="HighQuality"/>
+                        </Border>
+                        <StackPanel Margin="14,10,14,12">
+                            <TextBlock x:Name="PreviewTitle" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="PreviewHost" Style="{StaticResource Text.Secondary}" Margin="0,2,0,0"/>
+                            <TextBlock x:Name="PreviewState" Style="{StaticResource Text.Secondary}" Foreground="{DynamicResource Brush.Accent}" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <Popup x:Name="SuggestionsPopup" PlacementTarget="{Binding ElementName=Omnibox}" Placement="Bottom" AllowsTransparency="True"
+                   StaysOpen="True" Focusable="False" IsOpen="{Binding Omnibox.IsOpen, Mode=OneWay}" PopupAnimation="None" VerticalOffset="-2">
+                <Border Style="{StaticResource PopupSurface}" Margin="0,0,12,18" Padding="6" Width="{Binding ActualWidth, ElementName=Omnibox}">
+                    <ListBox x:Name="SuggestionsList" Style="{StaticResource PlainList}" ItemsSource="{Binding Omnibox.Suggestions}"
+                             SelectedItem="{Binding Omnibox.Selected}" ItemTemplate="{StaticResource SuggestionTemplate}"
+                             Focusable="False" MaxHeight="420" PreviewMouseLeftButtonDown="OnSuggestionClick">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource ListRow}">
+                                <Setter Property="Focusable" Value="False"/>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </Border>
+            </Popup>
+
+            <Popup x:Name="BookmarkPopup" PlacementTarget="{Binding ElementName=StarButton}" Placement="Custom" AllowsTransparency="True"
+                   StaysOpen="False" PopupAnimation="Fade" Closed="OnBookmarkPopupClosed">
+                <Border Style="{StaticResource PopupSurface}" Width="340" Padding="18,16">
+                    <StackPanel>
+                        <TextBlock x:Name="BookmarkPopupTitle" Text="Bookmark added" Style="{StaticResource Text.Heading}" Margin="0,0,0,14"/>
+                        <TextBlock Text="Name" FontSize="12" Foreground="{DynamicResource Brush.TextSecondary}" Margin="0,0,0,6"/>
+                        <TextBox x:Name="BookmarkName" Style="{StaticResource TextField}" Margin="0,0,0,12" KeyDown="OnBookmarkPopupKey"/>
+                        <TextBlock Text="Folder" FontSize="12" Foreground="{DynamicResource Brush.TextSecondary}" Margin="0,0,0,6"/>
+                        <ComboBox x:Name="BookmarkFolder" Margin="0,0,0,16" HorizontalAlignment="Stretch" DisplayMemberPath="Text"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="Remove" Style="{StaticResource Button.Danger}" Click="OnBookmarkRemove"/>
+                            <Button Content="Done" Style="{StaticResource Button.Primary}" Margin="8,0,0,0" Click="OnBookmarkDone"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <Popup x:Name="DownloadPopup" PlacementTarget="{Binding ElementName=DownloadsButton}" Placement="Custom" AllowsTransparency="True"
+                   StaysOpen="True" PopupAnimation="Fade">
+                <Border Style="{StaticResource PopupSurface}" Width="360" Padding="14,12">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource IconButton.Small}" Content="{x:Static c:Icons.Close}" Click="OnDownloadPopupClose"/>
+                            <TextBlock x:Name="DownloadPopupTitle" Text="Downloading" Style="{StaticResource Text.Heading}" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <Button DockPanel.Dock="Bottom" HorizontalAlignment="Left" Content="Show all downloads" Style="{StaticResource Button.Link}"
+                                Margin="2,8,0,0" Click="OnShowAllDownloads"/>
+                        <ContentControl x:Name="DownloadPopupItem" ContentTemplate="{StaticResource DownloadTemplate}" Focusable="False"/>
+                    </DockPanel>
+                </Border>
+            </Popup>
+
+            <Popup x:Name="ShieldPopup" PlacementTarget="{Binding ElementName=ShieldButton}" Placement="Custom" AllowsTransparency="True"
+                   StaysOpen="False" PopupAnimation="Fade">
+                <Border Style="{StaticResource PopupSurface}" Width="320" Padding="18,16">
+                    <StackPanel>
+                        <TextBlock x:Name="ShieldHost" Style="{StaticResource Text.Heading}" TextTrimming="CharacterEllipsis"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,14,0,2">
+                            <TextBlock x:Name="ShieldCount" FontSize="30" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Accent}" VerticalAlignment="Bottom"/>
+                            <TextBlock Text="  ads and trackers blocked on this page" Foreground="{DynamicResource Brush.TextSecondary}" VerticalAlignment="Bottom" Margin="0,0,0,6"/>
+                        </StackPanel>
+                        <TextBlock x:Name="ShieldTotal" Style="{StaticResource Text.Secondary}" Margin="0,0,0,14"/>
+                        <CheckBox x:Name="ShieldToggle" Style="{StaticResource ToggleSwitch}" Click="OnShieldToggle">
+                            <TextBlock x:Name="ShieldToggleText" TextWrapping="Wrap"/>
+                        </CheckBox>
+                        <TextBlock x:Name="ShieldOffNote" Text="Blocking is turned off for all sites in Settings." Style="{StaticResource Text.Secondary}"
+                                   TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed"/>
+                        <Button Content="Blocker settings" Style="{StaticResource Button.Link}" HorizontalAlignment="Left" Margin="0,14,0,0" Click="OnBlockerSettings"/>
+                    </StackPanel>
+                </Border>
+            </Popup>
+            <Popup x:Name="SiteInfoPopup" PlacementTarget="{Binding ElementName=SiteInfoButton}" Placement="Bottom" AllowsTransparency="True"
+                   StaysOpen="False" PopupAnimation="Fade" HorizontalOffset="-8">
+                <Border Style="{StaticResource PopupSurface}" Width="340" Padding="18,16">
+                    <StackPanel>
+                        <TextBlock x:Name="SiteInfoHost" Style="{StaticResource Text.Heading}" TextTrimming="CharacterEllipsis"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <TextBlock x:Name="SiteInfoGlyph" Style="{StaticResource Text.Icon}" FontSize="14" Margin="0,0,10,0"/>
+                            <TextBlock x:Name="SiteInfoStatus" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <TextBlock x:Name="SiteInfoDetail" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12.5"/>
+                        <TextBlock x:Name="SiteInfoPermsHeader" Text="Permissions" Style="{StaticResource Text.Caption}" Margin="0,16,0,6"/>
+                        <ItemsControl x:Name="SiteInfoPerms">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,3">
+                                        <Button DockPanel.Dock="Right" Content="Reset" Style="{StaticResource Button.Link}" Tag="{Binding}" Click="OnSitePermissionReset"/>
+                                        <TextBlock Text="{Binding Display}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                            <Button Content="Site settings" Style="{StaticResource Button.Secondary}" Click="OnSiteSettings"/>
+                            <Button Content="QR code" Style="{StaticResource Button.Secondary}" Margin="8,0,0,0" Click="OnSiteQr"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Popup>
+        </Grid>
+    </Border>
+</Window>

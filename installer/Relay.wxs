@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  RELAY per-user installer. Installs to %LOCALAPPDATA%\Programs\RELAY with no
+  administrator rights (ALLUSERS is empty, InstallScope="perUser").
+  Built by publish.sh with wixl (msitools); the file list comes from wixl-heat.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="RELAY" Language="1033" Version="$(var.Version)"
+           Manufacturer="RELAY" UpgradeCode="6B3D2F7A-91C4-4E0B-A7F2-5C8E1D4B9A30">
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser"
+             Description="RELAY web browser" Comments="Installs for the current user only. No administrator rights required."
+             />
+
+    <Property Id="MSIINSTALLPERUSER" Value="1"/>
+    <Property Id="ARPPRODUCTICON" Value="RelayIcon"/>
+    <Property Id="ARPNOMODIFY" Value="1"/>
+    <Icon Id="RelayIcon" SourceFile="$(var.SourceDir)/Relay.exe"/>
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of RELAY is already installed."/>
+    <Media Id="1" Cabinet="relay.cab" EmbedCab="yes"/>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="ProgramsFolder" Name="Programs">
+          <Directory Id="INSTALLDIR" Name="RELAY"/>
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder"/>
+      <Directory Id="DesktopFolder"/>
+    </Directory>
+
+    <DirectoryRef Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut" Guid="3E0C6A51-2B7D-4F36-9E21-8A5D4C7B1F02">
+        <Shortcut Id="RelayStartMenu" Name="RELAY" Description="Browse the web with RELAY"
+                  Target="[INSTALLDIR]Relay.exe" WorkingDirectory="INSTALLDIR"/>
+        <RegistryValue Root="HKCU" Key="Software\RELAY" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="8F2A4C93-6D15-4B7E-B0C8-2E9F7A3D5164">
+        <Shortcut Id="RelayDesktop" Name="RELAY" Description="Browse the web with RELAY"
+                  Target="[INSTALLDIR]Relay.exe" WorkingDirectory="INSTALLDIR"/>
+        <RegistryValue Root="HKCU" Key="Software\RELAY" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="InstallDirCleanup" Guid="C51E7B2D-4A93-4F08-8D6C-1B7E3A9F2D45">
+        <RemoveFolder Id="RemoveInstallDir" On="uninstall"/>
+        <RegistryValue Root="HKCU" Key="Software\RELAY" Name="InstallDir" Type="string" Value="[INSTALLDIR]" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="Main" Title="RELAY" Level="1">
+      <ComponentGroupRef Id="RelayFiles"/>
+      <ComponentRef Id="StartMenuShortcut"/>
+      <ComponentRef Id="DesktopShortcut"/>
+      <ComponentRef Id="InstallDirCleanup"/>
+    </Feature>
+  </Product>
+</Wix>
