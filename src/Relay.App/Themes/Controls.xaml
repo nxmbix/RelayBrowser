@@ -54,6 +54,7 @@
         <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontFamily" Value="{StaticResource Font.Icons}"/>
         <Setter Property="Cursor" Value="Arrow"/>
         <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
         <Setter Property="ToolTipService.InitialShowDelay" Value="600"/>
@@ -135,6 +136,7 @@
         <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="FontSize" Value="10"/>
+        <Setter Property="FontFamily" Value="{StaticResource Font.Icons}"/>
         <Setter Property="Focusable" Value="False"/>
         <Setter Property="Template">
             <Setter.Value>
