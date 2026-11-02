@@ -196,6 +196,12 @@
                                     <RadioButton Style="{StaticResource Radio}" GroupName="theme" Content="Dark"
                                                  IsChecked="{Binding Theme, Converter={StaticResource EnumEquals}, ConverterParameter=Dark}"/>
                                     <Border Style="{StaticResource Divider}"/>
+                                    <DockPanel Margin="0,0,0,14">
+                                        <Button DockPanel.Dock="Right" Content="Pick any colour…" Style="{StaticResource Button.Secondary}" Click="OnPickAccent" Margin="8,0,0,0"/>
+                                        <Button DockPanel.Dock="Right" Content="Apply" Style="{StaticResource Button.Secondary}" Click="OnApplyAccentHex" Margin="8,0,0,0"/>
+                                        <Border DockPanel.Dock="Left" x:Name="AccentSwatch" Width="28" Height="28" CornerRadius="14" Margin="0,0,10,0" Background="{DynamicResource Brush.Accent}"/>
+                                        <TextBox x:Name="AccentHexBox" Style="{StaticResource TextField}" ToolTip="Any colour as #RRGGBB" KeyDown="OnAccentHexKey"/>
+                                    </DockPanel>
                                     <TextBlock Text="Accent colour" Margin="0,0,0,10"/>
                                     <ListBox ItemsSource="{Binding Accents}" SelectedItem="{Binding Accent}" Background="Transparent" BorderThickness="0"
                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">

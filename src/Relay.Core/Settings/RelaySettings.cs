@@ -77,6 +77,8 @@ public sealed class RelaySettings
 
     [JsonIgnore]
     public static IReadOnlyList<string> AccentNames { get; } = ["Teal", "Cobalt", "Iris", "Amber", "Rose", "Graphite"];
+    /// <summary>A custom accent from the colour picker: "#RRGGBB".</summary>
+    public static bool IsCustomAccent(string? v) => v is { Length: 7 } && v[0] == '#' && v.Skip(1).All(Uri.IsHexDigit);
 
     public RelaySettings Clone()
     {

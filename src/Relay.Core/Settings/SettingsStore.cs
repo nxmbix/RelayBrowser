@@ -64,7 +64,7 @@ public sealed class SettingsStore
 
     private static void Normalize(RelaySettings s)
     {
-        if (!RelaySettings.AccentNames.Contains(s.Accent)) s.Accent = "Teal";
+        if (!RelaySettings.AccentNames.Contains(s.Accent) && !RelaySettings.IsCustomAccent(s.Accent)) s.Accent = "Teal";
         s.DefaultZoom = Math.Clamp(double.IsFinite(s.DefaultZoom) ? s.DefaultZoom : 1, 0.25, 5);
         s.InterfaceFontSize = Math.Clamp(double.IsFinite(s.InterfaceFontSize) ? s.InterfaceFontSize : 13, 11, 16);
         s.WindowWidth = Math.Clamp(double.IsFinite(s.WindowWidth) ? s.WindowWidth : 1280, 640, 10000);

@@ -32,6 +32,7 @@ public partial class SettingsWindow : Window
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) Close(); };
         Activated += (_, _) => _vm.RefreshDefaultBrowser(); // back from Windows Settings
         Loaded += async (_, _) => await UpdatePasswordCountAsync();
+        Loaded += (_, _) => AccentHexBox.Text = _s.Settings.Current.Accent.StartsWith('#') ? _s.Settings.Current.Accent : string.Empty;
         Navigate(section);
     }
 
@@ -78,6 +79,53 @@ public partial class SettingsWindow : Window
     private void OnSaveHomepage(object sender, RoutedEventArgs e) => _vm.CommitHomepage();
     private void OnMakeDefaultBrowser(object sender, RoutedEventArgs e) => _vm.MakeDefaultBrowser();
     private void OnImportData(object sender, RoutedEventArgs e) => _ = ImportDialog.ShowAsync(this, _s);
+
+    // ---- Custom accent colour ----
+    private void OnAccentHexKey(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) OnApplyAccentHex(sender, e); }
+
+    private void OnApplyAccentHex(object sender, RoutedEventArgs e)
+    {
+        var text = AccentHexBox.Text.Trim();
+        if (!text.StartsWith('#')) text = "#" + text;
+        if (Relay.App.Themes.ThemeManager.TryCustom(text.ToUpperInvariant()) is null)
+        {
+            RelayDialog.Info(this, "Not a colour", "Type a colour like #FF5A1F.", Icons.Warning);
+            return;
+        }
+        _s.Settings.Update(s => s.Accent = text.ToUpperInvariant());
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct CHOOSECOLOR
+    {
+        public int lStructSize; public IntPtr hwndOwner, hInstance; public int rgbResult; public IntPtr lpCustColors;
+        public int Flags; public IntPtr lCustData, lpfnHook, lpTemplateName;
+    }
+    [System.Runtime.InteropServices.DllImport("comdlg32.dll")] private static extern bool ChooseColor(ref CHOOSECOLOR cc);
+    private static readonly int[] CustomColors = new int[16];
+
+    /// <summary>Windows' standard colour dialog (full palette + RGB/HSL).</summary>
+    private void OnPickAccent(object sender, RoutedEventArgs e)
+    {
+        var current = Relay.App.Themes.ThemeManager.TryCustom(_s.Settings.Current.Accent) ?? ((System.Windows.Media.SolidColorBrush)FindResource("Brush.Accent")).Color;
+        var handle = System.Runtime.InteropServices.GCHandle.Alloc(CustomColors, System.Runtime.InteropServices.GCHandleType.Pinned);
+        try
+        {
+            var cc = new CHOOSECOLOR
+            {
+                lStructSize = System.Runtime.InteropServices.Marshal.SizeOf<CHOOSECOLOR>(),
+                hwndOwner = new System.Windows.Interop.WindowInteropHelper(this).Handle,
+                rgbResult = current.R | (current.G << 8) | (current.B << 16),
+                lpCustColors = handle.AddrOfPinnedObject(),
+                Flags = 0x1 | 0x2, // CC_RGBINIT | CC_FULLOPEN
+            };
+            if (!ChooseColor(ref cc)) return;
+            var hex = $"#{cc.rgbResult & 0xFF:X2}{(cc.rgbResult >> 8) & 0xFF:X2}{(cc.rgbResult >> 16) & 0xFF:X2}";
+            AccentHexBox.Text = hex;
+            _s.Settings.Update(s => s.Accent = hex);
+        }
+        finally { handle.Free(); }
+    }
 
     private async void OnImportPasswords(object sender, RoutedEventArgs e)
     {
