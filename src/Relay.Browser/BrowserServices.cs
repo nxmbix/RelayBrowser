@@ -21,6 +21,7 @@ public sealed class BrowserServices
         Permissions = new PermissionRepository(db);
         Favicons = new FaviconRepository(db);
         Sessions = new SessionRepository(db);
+        Passwords = new PasswordRepository(db, new DpapiProtector());
         Environment = new BrowserEnvironment(paths);
         Downloads = new DownloadManager(this);
         PermissionHandler = new PermissionHandler(this);
@@ -40,6 +41,7 @@ public sealed class BrowserServices
     public PermissionRepository Permissions { get; }
     public FaviconRepository Favicons { get; }
     public SessionRepository Sessions { get; }
+    public PasswordRepository Passwords { get; }
     public BrowserEnvironment Environment { get; }
     public DownloadManager Downloads { get; }
     public PermissionHandler PermissionHandler { get; }

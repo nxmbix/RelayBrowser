@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Web.WebView2.Core;
 using Relay.Browser;
+using Relay.Data;
 using Relay.Core.Models;
 using Relay.Core.Navigation;
 
@@ -22,6 +23,7 @@ public sealed partial class MainViewModel : ObservableObject
         Sidebar = new SidebarViewModel(services);
         _s.Downloads.ActiveCountChanged += (_, _) => OnPropertyChanged(nameof(ActiveDownloads));
         _s.Bookmarks.Changed += async (_, _) => await RefreshBookmarkStateAsync();
+        _s.Passwords.Changed += async (_, _) => await RefreshLoginsAsync();
         _s.Settings.Changed += (_, _) =>
         {
             OnPropertyChanged(nameof(ShowHomeButton));
@@ -67,6 +69,23 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private double _pageCornerRadius;
     /// <summary>Pinned tabs, shown as tiles at the top of the vertical tab list.</summary>
     public ObservableCollection<BrowserTab> PinnedTabs { get; } = [];
+
+    /// <summary>Saved RELAY logins for the active page's origin (never in private windows).</summary>
+    public ObservableCollection<SavedLogin> Logins { get; } = [];
+    [ObservableProperty] private bool _hasSavedLogins;
+
+    public async Task RefreshLoginsAsync()
+    {
+        var tab = ActiveTab;
+        var origin = IsPrivate || tab is null || tab.IsReaderPage ? null : Relay.Core.Passwords.PasswordOrigin.From(tab.Url);
+        List<SavedLogin> list = [];
+        try { if (origin is not null) list = await _s.Passwords.ForOriginAsync(origin); }
+        catch (Exception ex) { _s.Paths.LogError("Saved logins", ex); }
+        if (!ReferenceEquals(tab, ActiveTab)) return;
+        Logins.Clear();
+        foreach (var l in list) Logins.Add(l);
+        HasSavedLogins = Logins.Count > 0;
+    }
 
     public void TogglePin(BrowserTab tab)
     {
@@ -119,7 +138,7 @@ public sealed partial class MainViewModel : ObservableObject
             if (e.PropertyName is nameof(BrowserTab.Url) or nameof(BrowserTab.Title))
             {
                 TabsChanged?.Invoke(this, EventArgs.Empty);
-                if (ReferenceEquals(tab, ActiveTab) && e.PropertyName == nameof(BrowserTab.Url)) _ = RefreshBookmarkStateAsync();
+                if (ReferenceEquals(tab, ActiveTab) && e.PropertyName == nameof(BrowserTab.Url)) { _ = RefreshBookmarkStateAsync(); _ = RefreshLoginsAsync(); }
             }
         };
 
@@ -170,6 +189,7 @@ public sealed partial class MainViewModel : ObservableObject
         newValue.IsActive = true;
         if (newValue.Group is { IsCollapsed: true } g) { g.IsCollapsed = false; RebuildStrip(); }
         _ = newValue.EnsureCreatedAsync();
+        _ = RefreshLoginsAsync();
         _ = RefreshBookmarkStateAsync();
         if (newValue.IsNewTabPage) _ = newValue.PushNewTabStateAsync();
         NotifyZoomChanged();

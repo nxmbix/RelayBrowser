@@ -296,6 +296,20 @@
                             <TextBlock Text="Privacy and security" Style="{StaticResource Text.Title}" Margin="0,0,0,18"/>
 
                             <Border Style="{StaticResource Card}">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Content="Import CSV…" Style="{StaticResource Button.Secondary}" Click="OnImportPasswords" Margin="0,0,8,0"/>
+                                        <Button Content="Remove all" Style="{StaticResource Button.Danger}" Click="OnRemoveRelayPasswords"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="RELAY passwords" Style="{StaticResource Text.Heading}"/>
+                                        <TextBlock x:Name="PasswordCountText" Style="{StaticResource Hint}"
+                                                   Text="Import passwords exported from another browser. They're encrypted for your Windows account and filled only when you click the key in the toolbar."/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
                                 <StackPanel>
                                     <DockPanel>
                                         <Button DockPanel.Dock="Right" Content="Clear browsing data…" Style="{StaticResource Button.Secondary}" Click="OnClearData"/>

@@ -674,6 +674,25 @@ public partial class MainWindow : Window
         container.BeginAnimation(OpacityProperty, fade);
     }
 
+    private void OnSavedLoginsClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.ActiveTab is not { } tab) return;
+        var menu = new ContextMenu { PlacementTarget = (UIElement)sender, Placement = PlacementMode.Bottom };
+        foreach (var login in ViewModel.Logins.ToList())
+            menu.Items.Add(Item(login.Username.Length > 0 ? login.Username : "(no username)", "\uE8D7", () => _ = FillLoginAsync(tab, login)));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item("Manage passwords…", Icons.Settings, () => App.Current.ShowSettings("privacy")));
+        menu.IsOpen = true;
+    }
+
+    private async Task FillLoginAsync(BrowserTab tab, Relay.Data.SavedLogin login)
+    {
+        var password = await _s.Passwords.GetPasswordAsync(login.Id);
+        if (password is null) { ShowToast(Icons.Warning, "Couldn't read that password", "It was saved by another Windows account or PC."); return; }
+        if (!await tab.FillLoginAsync(login.Origin, login.Username, password))
+            ShowToast(Icons.Warning, "No sign-in form found", "Open the page's sign-in form and try again.");
+    }
+
     private void OnPinnedMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (TabFrom(e.OriginalSource) is not { } tab) return;

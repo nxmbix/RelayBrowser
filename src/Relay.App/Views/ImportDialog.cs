@@ -24,14 +24,14 @@ public static class ImportDialog
             d.AddChoice("Import from", sources.Select((x, i) => ((object)i, x.DisplayName)), 0)
              .AddCheck("Bookmarks", true, "bookmarks")
              .AddCheck("History", true, "history")
-             .AddNote("Passwords and cookies stay in the other browser: the engine RELAY uses has no supported way to add saved passwords.");
+             .AddNote("Passwords: export them from the other browser as a CSV file (its password settings → Export), then choose \"From a file…\".");
         }
-        d.AddButton("file", "Bookmarks file…")
+        d.AddButton("file", "From a file…")
          .AddButton("cancel", firstRun ? "Not now" : "Cancel", isCancel: true);
         if (sources.Count > 0) d.AddButton("import", "Import", primary: true);
 
         var result = d.Ask();
-        if (result == "file") { await ImportBookmarksFileAsync(owner, s); return; }
+        if (result == "file") { await ImportFromFileAsync(owner, s); return; }
         if (result != "import" || d.Choice is not int index || index < 0 || index >= sources.Count) return;
 
         var source = sources[index];
@@ -58,20 +58,71 @@ public static class ImportDialog
         }
     }
 
-    /// <summary>Imports a bookmarks HTML file (the format every browser exports). Returns true when bookmarks were added.</summary>
-    public static async Task<bool> ImportBookmarksFileAsync(Window owner, BrowserServices s)
+    /// <summary>A bookmarks HTML file or a passwords CSV file, picked by the user.</summary>
+    public static async Task ImportFromFileAsync(Window owner, BrowserServices s)
     {
         var dlg = new OpenFileDialog
         {
-            Title = "Import bookmarks",
-            Filter = "Bookmark files (*.html;*.htm)|*.html;*.htm|All files|*.*",
+            Title = "Import bookmarks or passwords",
+            Filter = "Bookmarks (HTML) or passwords (CSV)|*.html;*.htm;*.csv|All files|*.*",
         };
-        if (dlg.ShowDialog(owner) != true) return false;
+        if (dlg.ShowDialog(owner) != true) return;
+        if (dlg.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) await ImportPasswordsFileAsync(owner, s, dlg.FileName);
+        else await ImportBookmarksFileAsync(owner, s, dlg.FileName);
+    }
+
+    /// <summary>Imports a passwords CSV (Chrome, Edge, Brave, Opera, Vivaldi, Firefox) into RELAY's encrypted store.</summary>
+    public static async Task<int> ImportPasswordsFileAsync(Window owner, BrowserServices s, string? path = null)
+    {
+        if (path is null)
+        {
+            var dlg = new OpenFileDialog { Title = "Import passwords", Filter = "Passwords (CSV)|*.csv|All files|*.*" };
+            if (dlg.ShowDialog(owner) != true) return 0;
+            path = dlg.FileName;
+        }
         try
         {
-            var info = new FileInfo(dlg.FileName);
+            if (new FileInfo(path).Length > 20 * 1024 * 1024) throw new InvalidDataException("The file is too large to be a password export.");
+            var logins = Relay.Core.Passwords.PasswordCsv.Parse(await File.ReadAllTextAsync(path));
+            if (logins.Count == 0)
+            {
+                RelayDialog.Info(owner, "No passwords found", "That file isn't a password export. In the other browser, open its password settings and choose Export passwords.", Icons.Warning);
+                return 0;
+            }
+            var n = await s.Passwords.ImportAsync(logins);
+            if (RelayDialog.Confirm(owner, $"{n} passwords imported",
+                    "They're encrypted for your Windows account. The CSV file still holds every password in plain text. Delete it now?", "Delete file"))
+            {
+                try { File.Delete(path); } catch (Exception ex) { RelayDialog.Info(owner, "Couldn't delete the file", ex.Message, Icons.Warning); }
+            }
+            return n;
+        }
+        catch (Exception ex)
+        {
+            s.Paths.LogError("Import passwords", ex);
+            RelayDialog.Info(owner, "Import failed", ex.Message, Icons.Warning);
+            return 0;
+        }
+    }
+
+    /// <summary>Imports a bookmarks HTML file (the format every browser exports). Returns true when bookmarks were added.</summary>
+    public static async Task<bool> ImportBookmarksFileAsync(Window owner, BrowserServices s, string? path = null)
+    {
+        if (path is null)
+        {
+            var dlg = new OpenFileDialog
+            {
+                Title = "Import bookmarks",
+                Filter = "Bookmark files (*.html;*.htm)|*.html;*.htm|All files|*.*",
+            };
+            if (dlg.ShowDialog(owner) != true) return false;
+            path = dlg.FileName;
+        }
+        try
+        {
+            var info = new FileInfo(path);
             if (info.Length > 50 * 1024 * 1024) throw new InvalidDataException("The file is too large to be a bookmark export.");
-            var html = await File.ReadAllTextAsync(dlg.FileName);
+            var html = await File.ReadAllTextAsync(path);
             var tree = await Task.Run(() => NetscapeBookmarks.Parse(html));
             if (tree.CountBookmarks() == 0)
             {

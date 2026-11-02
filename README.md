@@ -163,6 +163,10 @@ Relay/
 
 Setup registers RELAY as a browser for your user account (http/https links plus .html, .svg and .pdf files; no admin rights needed), so it appears in Windows' **Default apps**. If you leave "Make RELAY my default browser" ticked, Setup opens that page when it finishes. You can also use Settings → General → **Make default** at any time. Windows 10 and 11 don't let any app switch the default browser by itself: you confirm it in Windows Settings (on Windows 11 the page opens directly on RELAY). Uninstalling removes the registration.
 
+## Passwords
+
+Export passwords from your old browser as a CSV file (Chrome/Edge/Brave/Opera/Vivaldi: password settings → Export; Firefox: Passwords → ⋯ → Export). Then use ⋯ → Import browser data → From a file…, or Settings → Privacy → Import CSV…. RELAY stores them encrypted with Windows DPAPI for your account, and offers to delete the plain-text CSV afterwards. On a sign-in page with a saved login, a key appears in the toolbar. Pick an account and RELAY fills the page. Nothing is filled automatically, logins are tied to the exact site (scheme, host and port), and private windows never use them. RELAY doesn't read other browsers' password databases.
+
 ## RELAY in Windows Task Manager
 
 Windows Task Manager (Processes tab) groups a desktop app by its **process tree**: everything started by the process that owns the window is listed under it. RELAY creates one shared WebView2 environment, so the WebView2 browser process is a child of `Relay.exe` and the renderer, GPU and utility processes are its children. They all show up together under **RELAY Browser** (the name comes from `Relay.exe`'s file description). RELAY's own task manager (Shift+Esc) checks this and says if any engine process isn't under RELAY.

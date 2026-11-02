@@ -31,6 +31,7 @@ public partial class SettingsWindow : Window
         }
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) Close(); };
         Activated += (_, _) => _vm.RefreshDefaultBrowser(); // back from Windows Settings
+        Loaded += async (_, _) => await UpdatePasswordCountAsync();
         Navigate(section);
     }
 
@@ -77,6 +78,30 @@ public partial class SettingsWindow : Window
     private void OnSaveHomepage(object sender, RoutedEventArgs e) => _vm.CommitHomepage();
     private void OnMakeDefaultBrowser(object sender, RoutedEventArgs e) => _vm.MakeDefaultBrowser();
     private void OnImportData(object sender, RoutedEventArgs e) => _ = ImportDialog.ShowAsync(this, _s);
+
+    private async void OnImportPasswords(object sender, RoutedEventArgs e)
+    {
+        await ImportDialog.ImportPasswordsFileAsync(this, _s);
+        await UpdatePasswordCountAsync();
+    }
+
+    private async void OnRemoveRelayPasswords(object sender, RoutedEventArgs e)
+    {
+        if (!RelayDialog.Confirm(this, "Remove all RELAY passwords?", "Every password imported into RELAY will be deleted.", "Remove", danger: true)) return;
+        await _s.Passwords.ClearAsync();
+        await UpdatePasswordCountAsync();
+    }
+
+    private async Task UpdatePasswordCountAsync()
+    {
+        try
+        {
+            var n = await _s.Passwords.CountAsync();
+            PasswordCountText.Text = (n == 1 ? "1 saved password" : $"{n} saved passwords") +
+                ", encrypted for your Windows account. Click the key in the toolbar on a sign-in page to fill one.";
+        }
+        catch { }
+    }
     private void OnHomepageKey(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) _vm.CommitHomepage(); }
     private void OnSaveCustomEngine(object sender, RoutedEventArgs e) => _vm.CommitCustomEngine();
 

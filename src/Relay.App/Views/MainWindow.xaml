@@ -766,6 +766,8 @@
                     </Border>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
+                        <Button Style="{StaticResource IconButton}" Content="&#xE8D7;" Click="OnSavedLoginsClick" ToolTip="Fill a saved password"
+                                Visibility="{Binding HasSavedLogins, Converter={StaticResource BoolToVis}}"/>
                         <Button Style="{StaticResource IconButton}" Content="{x:Static c:Icons.ReadingList}" Click="OnAddToReadingList"
                                 ToolTip="Add to reading list"/>
                         <Grid>

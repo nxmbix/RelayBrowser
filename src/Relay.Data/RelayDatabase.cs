@@ -8,7 +8,7 @@ namespace Relay.Data;
 /// </summary>
 public sealed class RelayDatabase
 {
-    private const int SchemaVersion = 3;
+    private const int SchemaVersion = 4;
     private readonly string _connectionString;
 
     public RelayDatabase(string path)
@@ -73,6 +73,17 @@ public sealed class RelayDatabase
         }
         // v3: pinned tabs.
         if (version < 3) Exec(c, tx, "ALTER TABLE session_tabs ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0;");
+        // v4: RELAY's own password store (secrets are DPAPI-encrypted blobs).
+        if (version < 4) Exec(c, tx, """
+            CREATE TABLE IF NOT EXISTS passwords (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                origin TEXT NOT NULL,
+                username TEXT NOT NULL DEFAULT '',
+                secret BLOB NOT NULL,
+                created_at INTEGER NOT NULL,
+                UNIQUE(origin, username)
+            );
+            """);
         Exec(c, tx, $"PRAGMA user_version = {SchemaVersion};");
         tx.Commit();
     }
