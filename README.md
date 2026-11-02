@@ -159,6 +159,10 @@ Relay/
 
 ---
 
+## Default browser
+
+Setup registers RELAY as a browser for your user account (http/https links plus .html, .svg and .pdf files; no admin rights needed), so it appears in Windows' **Default apps**. If you leave "Make RELAY my default browser" ticked, Setup opens that page when it finishes. You can also use Settings → General → **Make default** at any time. Windows 10 and 11 don't let any app switch the default browser by itself: you confirm it in Windows Settings (on Windows 11 the page opens directly on RELAY). Uninstalling removes the registration.
+
 ## RELAY in Windows Task Manager
 
 Windows Task Manager (Processes tab) groups a desktop app by its **process tree**: everything started by the process that owns the window is listed under it. RELAY creates one shared WebView2 environment, so the WebView2 browser process is a child of `Relay.exe` and the renderer, GPU and utility processes are its children. They all show up together under **RELAY Browser** (the name comes from `Relay.exe`'s file description). RELAY's own task manager (Shift+Esc) checks this and says if any engine process isn't under RELAY.

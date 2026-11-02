@@ -30,6 +30,7 @@ public partial class SettingsWindow : Window
             Top = owner.Top + Math.Max(0, (owner.ActualHeight - Height) / 2);
         }
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) Close(); };
+        Activated += (_, _) => _vm.RefreshDefaultBrowser(); // back from Windows Settings
         Navigate(section);
     }
 
@@ -74,6 +75,7 @@ public partial class SettingsWindow : Window
     private void OnClose(object sender, RoutedEventArgs e) => Close();
 
     private void OnSaveHomepage(object sender, RoutedEventArgs e) => _vm.CommitHomepage();
+    private void OnMakeDefaultBrowser(object sender, RoutedEventArgs e) => _vm.MakeDefaultBrowser();
     private void OnHomepageKey(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) _vm.CommitHomepage(); }
     private void OnSaveCustomEngine(object sender, RoutedEventArgs e) => _vm.CommitCustomEngine();
 

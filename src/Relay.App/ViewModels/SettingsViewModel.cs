@@ -339,6 +339,24 @@ public sealed partial class SettingsViewModel : ObservableObject
     public string SdkVersion => typeof(Microsoft.Web.WebView2.Core.CoreWebView2).Assembly.GetName().Version?.ToString() ?? "Unknown";
     public string DotNetVersion => Environment.Version.ToString();
     public string DataFolder => _s.Paths.Root;
+    public bool IsDefaultBrowser => Relay.Installer.DefaultBrowser.IsDefault();
+    public string DefaultBrowserStatus => IsDefaultBrowser
+        ? "RELAY is your default browser. Links from other apps open here."
+        : "Links from other apps open in another browser. Windows asks you to confirm the change in Settings → Default apps.";
+
+    public void MakeDefaultBrowser()
+    {
+        try { if (Environment.ProcessPath is { } exe) Relay.Installer.DefaultBrowser.Register(exe); }
+        catch (Exception ex) { _s.Paths.LogError("Registering as a browser", ex); }
+        Relay.Installer.DefaultBrowser.OpenWindowsSettings();
+    }
+
+    public void RefreshDefaultBrowser()
+    {
+        OnPropertyChanged(nameof(IsDefaultBrowser));
+        OnPropertyChanged(nameof(DefaultBrowserStatus));
+    }
+
     public string StorageMode => _s.Paths.IsPortable ? "Portable (data is stored next to RELAY.exe)" : "Per-user (data is stored in your local app data folder)";
 
     public string Licenses

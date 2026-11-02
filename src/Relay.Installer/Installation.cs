@@ -69,6 +69,8 @@ public static class Installation
             app.SetValue("StartMenuShortcut", startMenu ? StartMenuShortcut : string.Empty);
             app.SetValue("DesktopShortcut", desktop ? DesktopShortcut : string.Empty);
         }
+        // Listed in Settings → Default apps; becoming the default is the user's choice there.
+        DefaultBrowser.Register(exe);
     }
 
     public static void CreateShortcuts(string installDir, bool startMenu, bool desktop)
@@ -145,6 +147,7 @@ public static class Installation
         TryDelete(string.IsNullOrEmpty(startMenu) ? StartMenuShortcut : startMenu);
         TryDelete(string.IsNullOrEmpty(desktop) ? DesktopShortcut : desktop);
 
+        DefaultBrowser.Unregister();
         try { Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, throwOnMissingSubKey: false); } catch { }
         try { Registry.CurrentUser.DeleteSubKeyTree(AppKey, throwOnMissingSubKey: false); } catch { }
 

@@ -45,6 +45,7 @@ public partial class SetupWindow : Window
             // Keep the user's earlier shortcut choices on update.
             StartMenuCheck.IsChecked = File.Exists(Installation.StartMenuShortcut);
             DesktopCheck.IsChecked = File.Exists(Installation.DesktopShortcut);
+            DefaultBrowserCheck.IsChecked = false; // updates don't ask again
         }
 
         try
@@ -228,6 +229,7 @@ public partial class SetupWindow : Window
         var wasThere = Directory.Exists(dir) && Directory.EnumerateFileSystemEntries(dir).Any();
         var startMenu = StartMenuCheck.IsChecked == true;
         var desktop = DesktopCheck.IsChecked == true;
+        var makeDefault = DefaultBrowserCheck.IsChecked == true;
 
         _installing = true;
         _cts = new CancellationTokenSource();
@@ -272,6 +274,8 @@ public partial class SetupWindow : Window
             _installing = false;
             await Task.Delay(350);
             ShowDone(isUpdate);
+            // Windows only lets the user pick the default browser, so open the page where they confirm it.
+            if (makeDefault && !DefaultBrowser.IsDefault()) DefaultBrowser.OpenWindowsSettings();
         }
         catch (OperationCanceledException)
         {
@@ -313,6 +317,7 @@ public partial class SetupWindow : Window
     {
         DoneTitle.Text = isUpdate ? "RELAY is up to date" : "RELAY is ready";
         RuntimeNote.Visibility = HasWebView2Runtime() ? Visibility.Collapsed : Visibility.Visible;
+        DefaultBrowserButton.Visibility = DefaultBrowser.IsDefault() ? Visibility.Collapsed : Visibility.Visible;
         Show(PageDone, 3);
         var ease = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 };
         CheckScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.4, 1, TimeSpan.FromMilliseconds(420)) { EasingFunction = ease });
@@ -327,6 +332,8 @@ public partial class SetupWindow : Window
     }
 
     private void OnFinishClose(object sender, RoutedEventArgs e) => Close();
+
+    private void OnMakeDefaultBrowser(object sender, RoutedEventArgs e) => DefaultBrowser.OpenWindowsSettings();
 
     private void Launch()
     {
