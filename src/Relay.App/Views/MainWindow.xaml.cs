@@ -685,7 +685,7 @@ public partial class MainWindow : Window
         foreach (var login in ViewModel.Logins.ToList())
             menu.Items.Add(Item(login.Username.Length > 0 ? login.Username : "(no username)", "\uE8D7", () => _ = FillLoginAsync(tab, login)));
         menu.Items.Add(new Separator());
-        menu.Items.Add(Item("Manage passwords…", Icons.Settings, () => App.Current.ShowSettings("privacy")));
+        menu.Items.Add(Item("Manage passwords", "\uE8D7", App.Current.ShowPasswords));
         menu.IsOpen = true;
     }
 
@@ -850,6 +850,7 @@ public partial class MainWindow : Window
         menu.Items.Add(Item("Bookmarks", Icons.Bookmarks, () => OpenPanel(SidebarPanel.Bookmarks), "Ctrl+Shift+O"));
         menu.Items.Add(Item("History", Icons.History, () => OpenPanel(SidebarPanel.History), "Ctrl+H"));
         menu.Items.Add(Item("Downloads", Icons.Download, () => OpenPanel(SidebarPanel.Downloads), "Ctrl+J"));
+        menu.Items.Add(Item("Passwords", "\uE8D7", App.Current.ShowPasswords));
         menu.Items.Add(Item("Reading list", Icons.ReadingList, () => OpenPanel(SidebarPanel.ReadingList)));
         menu.Items.Add(new Separator());
         menu.Items.Add(Item("Find on page", Icons.Find, () => _ = vm.ActiveTab?.FindAsync(), "Ctrl+F", vm.ActiveTab?.IsCreated == true));
@@ -1663,6 +1664,7 @@ public partial class MainWindow : Window
             new("Downloads", "Sidebar", Icons.Download, "Ctrl+J", () => OpenPanel(SidebarPanel.Downloads)),
             new("Reading list", "Sidebar", Icons.ReadingList, "", () => OpenPanel(SidebarPanel.ReadingList)),
             new("Settings", "RELAY", Icons.Settings, "", () => App.Current.ShowSettings()),
+            new("Passwords", "RELAY", "\uE8D7", "", App.Current.ShowPasswords),
             new("Import from another browser", "RELAY", Icons.Import, "", () => _ = ImportDialog.ShowAsync(this, _s)),
             new(vm.IsSplit ? "Close split view" : "Split view with a new tab", "Tabs", "\uE89F", "", () => { if (vm.IsSplit) vm.CloseSplit(); else vm.SplitWithNewTab(); }),
             new(vm.VerticalTabs ? "Use horizontal tabs" : "Use vertical tabs", "Tabs", "\uE8A4", "", ToggleVerticalTabs),

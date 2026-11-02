@@ -32,6 +32,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         _title = _pendingUrl is null || UrlDisplay.IsNewTab(_pendingUrl) ? "New tab" : UrlDisplay.Host(_pendingUrl);
         _isLoading = !UrlDisplay.IsNewTab(_pendingUrl);
         _s.NewTab.StateChanged += OnNewTabStateChanged;
+        _s.PasswordsPage.StateChanged += OnPasswordsStateChanged;
         _ = Task.Delay(400).ContinueWith(_ => IsNew = false, TaskScheduler.FromCurrentSynchronizationContext());
         if (_pendingUrl is not null && !UrlDisplay.IsNewTab(_pendingUrl)) _ = LoadCachedFaviconAsync(_pendingUrl);
     }
@@ -41,7 +42,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
 
     [ObservableProperty] private WebView2? _webView;
     [ObservableProperty] private string _title;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(AddressText), nameof(IsNewTabPage), nameof(Security), nameof(Host), nameof(IsReaderPage))] private string _url;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(AddressText), nameof(IsNewTabPage), nameof(Security), nameof(Host), nameof(IsReaderPage), nameof(IsPasswordsPage))] private string _url;
     [ObservableProperty] private ImageSource? _favicon;
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _canGoBack;
@@ -70,6 +71,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
 
     public string AddressText => IsReaderPage && ReaderOriginalUrl is { } original ? UrlDisplay.ForAddressBar(original) : UrlDisplay.ForAddressBar(Url);
     public bool IsNewTabPage => UrlDisplay.IsNewTab(Url);
+    public bool IsPasswordsPage => UrlDisplay.IsPasswords(Url);
     public string Host => UrlDisplay.Host(Url);
     public bool IsVisibleTab => IsActive || IsSplitVisible;
     public bool ShowWebView => IsVisibleTab && !IsCrashed && !IsObscured;
@@ -159,6 +161,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
             core.SetVirtualHostNameToFolderMapping(UrlDisplay.NewTabHost, BrowserServices.NewTabFolder, CoreWebView2HostResourceAccessKind.DenyCors);
             core.SetVirtualHostNameToFolderMapping(UrlDisplay.UserAssetsHost, _s.Paths.Backgrounds, CoreWebView2HostResourceAccessKind.DenyCors);
             core.SetVirtualHostNameToFolderMapping(UrlDisplay.ReaderHost, BrowserServices.NewTabFolder, CoreWebView2HostResourceAccessKind.DenyCors);
+            core.SetVirtualHostNameToFolderMapping(UrlDisplay.PasswordsHost, BrowserServices.NewTabFolder, CoreWebView2HostResourceAccessKind.DenyCors);
         }
         catch (Exception ex) { _s.Paths.LogError("Mapping new tab page", ex); }
 
@@ -585,7 +588,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         try { json = e.WebMessageAsJson; } catch { return; }
         if (json.Length > 64 * 1024) return;
         // Sign-in forms (LoginCapture): only the top-level page, never private tabs; the origin comes from WebView2.
-        if (!IsPrivate && json.Contains("\"relay-login\"", StringComparison.Ordinal) && Relay.Core.Passwords.PasswordOrigin.From(e.Source) is { } loginOrigin)
+        if (!IsPrivate && !UrlDisplay.IsInternal(e.Source) && json.Contains("\"relay-login\"", StringComparison.Ordinal) && Relay.Core.Passwords.PasswordOrigin.From(e.Source) is { } loginOrigin)
         {
             try
             {
@@ -601,6 +604,13 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         }
         // The reader view may only ask for its article or to close itself.
         if (IsReaderPage && UrlDisplay.IsReader(e.Source)) { OnReaderMessage(json); return; }
+        // relay://passwords, as the top-level document, may manage saved logins.
+        if (IsPasswordsPage && PasswordsPageService.IsTrustedSource(e.Source))
+        {
+            try { await _s.PasswordsPage.HandleMessageAsync(this, json); }
+            catch (Exception ex) { _s.Paths.LogError("Passwords page message", ex); }
+            return;
+        }
         // Only RELAY's own new tab page, as the top-level document, may talk to the browser.
         if (!NewTabService.IsTrustedSource(e.Source) || !IsNewTabPage) return;
         try { await _s.NewTab.HandleMessageAsync(this, json); }
@@ -621,6 +631,24 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
             if (Core is not null && IsNewTabPage) Core.PostWebMessageAsJson(json);
         }
         catch (Exception ex) { _s.Paths.LogError("New tab state", ex); }
+    }
+
+    private async void OnPasswordsStateChanged(object? sender, EventArgs e)
+    {
+        if (IsPasswordsPage) await PushPasswordsStateAsync();
+    }
+
+    public async Task PushPasswordsStateAsync()
+    {
+        if (Core is null || !IsPasswordsPage) return;
+        try { PostPasswordsMessage(await _s.PasswordsPage.BuildStateJsonAsync(IsPrivate)); }
+        catch (Exception ex) { _s.Paths.LogError("Passwords page state", ex); }
+    }
+
+    /// <summary>Sends JSON to relay://passwords, and only while that page is the one showing.</summary>
+    public void PostPasswordsMessage(string json)
+    {
+        if (Core is { } core && IsPasswordsPage && UrlDisplay.IsPasswords(core.Source)) core.PostWebMessageAsJson(json);
     }
 
     public async Task PostNewTabMessageAsync(string json)
@@ -748,6 +776,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         _sleepTimer?.Stop();
         _discardTimer?.Stop();
         _s.NewTab.StateChanged -= OnNewTabStateChanged;
+        _s.PasswordsPage.StateChanged -= OnPasswordsStateChanged;
         DisposeWebView();
     }
 }

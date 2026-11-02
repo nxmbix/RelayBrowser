@@ -59,4 +59,9 @@ public sealed class BrowserUi : IBrowserUi
         App.Current.WindowManager?.LastActive?.ShowDownloadNotice(item, finished);
 
     public void OpenSettings(string? section) => App.Current.ShowSettings(section);
+
+    public async Task ImportPasswordsAsync()
+    {
+        if (Owner is { } owner) await ImportDialog.ImportPasswordsFileAsync(owner, App.Current.Services);
+    }
 }

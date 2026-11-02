@@ -8,6 +8,9 @@ public static class UrlDisplay
     public const string UserAssetsHost = "assets.relay";
     public const string ReaderHost = "reader.relay";
     public const string ReaderUrl = "https://reader.relay/reader.html";
+    public const string PasswordsHost = "passwords.relay";
+    public const string PasswordsUrl = "https://passwords.relay/passwords.html";
+    public const string RelayScheme = "relay";
 
     public static bool IsReader(string? url) =>
         url is not null && Uri.TryCreate(url, UriKind.Absolute, out var u) &&
@@ -17,16 +20,35 @@ public static class UrlDisplay
         url is not null && Uri.TryCreate(url, UriKind.Absolute, out var u) &&
         u.Host.Equals(NewTabHost, StringComparison.OrdinalIgnoreCase);
 
+    public static bool IsPasswords(string? url) =>
+        url is not null && Uri.TryCreate(url, UriKind.Absolute, out var u) &&
+        u.Scheme == Uri.UriSchemeHttps && u.Host.Equals(PasswordsHost, StringComparison.OrdinalIgnoreCase);
+
     public static bool IsInternal(string? url) =>
         url is not null && Uri.TryCreate(url, UriKind.Absolute, out var u) &&
         (u.Host.Equals(NewTabHost, StringComparison.OrdinalIgnoreCase) ||
          u.Host.Equals(UserAssetsHost, StringComparison.OrdinalIgnoreCase) ||
-         u.Host.Equals(ReaderHost, StringComparison.OrdinalIgnoreCase));
+         u.Host.Equals(ReaderHost, StringComparison.OrdinalIgnoreCase) ||
+         u.Host.Equals(PasswordsHost, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>"relay://passwords" → the internal page's real address; null for anything else.</summary>
+    public static string? ResolveRelayUrl(string text)
+    {
+        if (!text.StartsWith(RelayScheme + ":", StringComparison.OrdinalIgnoreCase)) return null;
+        var name = text[(RelayScheme.Length + 1)..].TrimStart('/').TrimEnd('/').ToLowerInvariant();
+        return name switch
+        {
+            "passwords" => PasswordsUrl,
+            "newtab" => NewTabUrl,
+            _ => null,
+        };
+    }
 
     /// <summary>Text for the address bar. Internal pages show as empty so the user can type.</summary>
     public static string ForAddressBar(string? url)
     {
         if (string.IsNullOrEmpty(url) || IsNewTab(url) || url == "about:blank") return string.Empty;
+        if (IsPasswords(url)) return "relay://passwords";
         return Uri.TryCreate(url, UriKind.Absolute, out var u) ? Unescape(u) : url;
     }
 

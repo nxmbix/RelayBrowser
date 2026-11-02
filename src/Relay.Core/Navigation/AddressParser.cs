@@ -48,6 +48,9 @@ public static partial class AddressParser
             return q.Length == 0 ? null : new AddressResult(engine.BuildSearchUri(q), true);
         }
 
+        // RELAY's own pages: relay://passwords, relay://newtab.
+        if (UrlDisplay.ResolveRelayUrl(text) is { } internalUrl) return new AddressResult(new Uri(internalUrl), false);
+
         if (LooksLikeUrl(text, out var uri)) return new AddressResult(uri!, false);
         return new AddressResult(engine.BuildSearchUri(text), true);
     }

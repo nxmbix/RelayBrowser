@@ -26,6 +26,7 @@ public sealed class BrowserServices
         Downloads = new DownloadManager(this);
         PermissionHandler = new PermissionHandler(this);
         NewTab = new NewTabService(this);
+        PasswordsPage = new PasswordsPageService(this);
         FaviconCache = new FaviconCache(Favicons);
         Blocker = new BlockerService(this);
     }
@@ -46,6 +47,7 @@ public sealed class BrowserServices
     public DownloadManager Downloads { get; }
     public PermissionHandler PermissionHandler { get; }
     public NewTabService NewTab { get; }
+    public PasswordsPageService PasswordsPage { get; }
     public FaviconCache FaviconCache { get; }
     public BlockerService Blocker { get; }
 

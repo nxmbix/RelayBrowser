@@ -230,6 +230,18 @@ public partial class App : Application
         _settingsWindow.Show();
     }
 
+    /// <summary>Shows relay://passwords, reusing a tab that already has it open.</summary>
+    public void ShowPasswords()
+    {
+        var w = WindowManager?.LastActive ?? WindowManager?.Open(false);
+        if (w is null) return;
+        var vm = w.ViewModel;
+        if (vm.Tabs.FirstOrDefault(t => t.IsPasswordsPage) is { } existing) vm.ActiveTab = existing;
+        else vm.OpenInNewTab(UrlDisplay.PasswordsUrl);
+        if (w.WindowState == WindowState.Minimized) w.WindowState = WindowState.Normal;
+        w.Activate();
+    }
+
     public void ShowTaskManager()
     {
         if (_taskManager is { IsLoaded: true })

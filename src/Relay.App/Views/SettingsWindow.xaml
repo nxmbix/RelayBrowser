@@ -305,7 +305,7 @@
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                                         <Button Content="Import CSV…" Style="{StaticResource Button.Secondary}" Click="OnImportPasswords" Margin="0,0,8,0"/>
-                                        <Button Content="View…" Style="{StaticResource Button.Secondary}" Click="OnViewPasswords" Margin="0,0,8,0"/>
+                                        <Button Content="Manage…" Style="{StaticResource Button.Secondary}" Click="OnViewPasswords" Margin="0,0,8,0"/>
                                         <Button Content="Remove all" Style="{StaticResource Button.Danger}" Click="OnRemoveRelayPasswords"/>
                                     </StackPanel>
                                     <StackPanel>

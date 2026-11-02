@@ -86,4 +86,25 @@ public class AddressParserTests
         Assert.Equal("example.com", UrlDisplay.Host("https://www.example.com/a"));
         Assert.Equal("https://example.com", UrlDisplay.Origin("https://Example.com/x?y"));
     }
+
+    [Theory]
+    [InlineData("relay://passwords")]
+    [InlineData("RELAY://Passwords/")]
+    [InlineData("relay:passwords")]
+    public void Relay_urls_open_internal_pages(string input)
+    {
+        var r = AddressParser.Parse(input, Engine)!;
+        Assert.False(r.IsSearch);
+        Assert.Equal(UrlDisplay.PasswordsUrl, r.Uri.ToString());
+    }
+
+    [Fact]
+    public void Passwords_page_shows_its_relay_address_and_is_internal()
+    {
+        Assert.Equal("relay://passwords", UrlDisplay.ForAddressBar(UrlDisplay.PasswordsUrl));
+        Assert.True(UrlDisplay.IsInternal(UrlDisplay.PasswordsUrl));
+        Assert.True(UrlDisplay.IsPasswords(UrlDisplay.PasswordsUrl));
+        Assert.False(UrlDisplay.IsPasswords("http://passwords.relay/passwords.html"));
+        Assert.Null(UrlDisplay.ResolveRelayUrl("relay://nope"));
+    }
 }
