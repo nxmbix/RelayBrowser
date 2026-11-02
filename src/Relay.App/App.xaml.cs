@@ -43,11 +43,12 @@ public partial class App : Application
 
     private async Task StartAsync(StartupEventArgs e)
     {
+        var args = CommandLineArgs.Normalize(e.Args, Environment.CommandLine);
 
         // Settings → Apps → RELAY → Uninstall runs "Relay.exe --uninstall".
-        if (e.Args.Any(a => a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase)))
+        if (args.Any(a => a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase)))
         {
-            if (e.Args.Any(a => a.Equals("--quiet", StringComparison.OrdinalIgnoreCase)))
+            if (args.Any(a => a.Equals("--quiet", StringComparison.OrdinalIgnoreCase)))
                 await UninstallWindow.UninstallAsync(removeData: false);
             else
                 new UninstallWindow().ShowDialog();
@@ -68,7 +69,7 @@ public partial class App : Application
         _single = new SingleInstance(Paths.Root);
         if (!_single.IsFirst)
         {
-            if (_single.Forward(e.Args)) { Shutdown(); return; }
+            if (_single.Forward(args)) { Shutdown(); return; }
         }
         if (Environment.ProcessPath is { } exePath)
             _ = Task.Run(() => Relay.Installer.AppIdentity.StampShortcuts(exePath, appId));
@@ -128,7 +129,7 @@ public partial class App : Application
 
         try
         {
-            await OpenStartupWindowsAsync(e.Args);
+            await OpenStartupWindowsAsync(args);
         }
         catch (Exception ex)
         {

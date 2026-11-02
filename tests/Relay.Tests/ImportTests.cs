@@ -130,3 +130,24 @@ public sealed class ImportTests : IDisposable
         Assert.Contains(all, h => h.Url == "https://b.example/");
     }
 }
+
+public class CommandLineArgsTests
+{
+    [Fact]
+    public void Single_argument_blocks_switch_injection()
+    {
+        var raw = "\"C:\\RELAY\\Relay.exe\" --single-argument https://x/\" --uninstall --quiet \"";
+        var args = Relay.Core.Navigation.CommandLineArgs.Normalize(["--single-argument", "https://x/", "--uninstall", "--quiet", ""], raw);
+        Assert.Equal(["https://x/\" --uninstall --quiet \""], args);
+        Assert.DoesNotContain(args, a => a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Plain_arguments_pass_through()
+    {
+        string[] a = ["--uninstall"];
+        Assert.Same(a, Relay.Core.Navigation.CommandLineArgs.Normalize(a, "Relay.exe --uninstall"));
+        Assert.Empty(Relay.Core.Navigation.CommandLineArgs.Normalize(["--single-argument"], "Relay.exe --single-argument"));
+        Assert.Empty(Relay.Core.Navigation.CommandLineArgs.Normalize(["--single-argument", "--uninstall"], "Relay.exe --single-argument --uninstall"));
+    }
+}

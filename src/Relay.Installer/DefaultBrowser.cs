@@ -22,7 +22,8 @@ public static class DefaultBrowser
 
     public static void Register(string exe)
     {
-        var open = $"\"{exe}\" \"%1\"";
+        // Like Chrome: everything after --single-argument is one URL, so links can't inject switches.
+        var open = $"\"{exe}\" --single-argument %1";
         var icon = $"{exe},0";
 
         WriteProgId(UrlProgId, "RELAY URL", icon, open, isUrl: true);
