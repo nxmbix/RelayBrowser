@@ -55,6 +55,8 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
     /// <summary>Shown in the second pane of split view.</summary>
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowWebView), nameof(ShowCrashPanel), nameof(IsVisibleTab))] private bool _isSplitVisible;
     [ObservableProperty] private bool _isSleeping;
+    /// <summary>The page was unloaded to free memory; it reloads from <see cref="Url"/> when the tab is shown.</summary>
+    [ObservableProperty] private bool _isDiscarded;
     [ObservableProperty] private TabGroup? _group;
     /// <summary>0 = not split, 1 = left pane, 2 = right pane.</summary>
     [ObservableProperty] private int _splitSide;
@@ -115,6 +117,11 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
 
         Configure(wv);
         wv.ZoomFactorChanged += (_, _) => OnPropertyChanged(nameof(Zoom));
+        IsDiscarded = false;
+        IsSleeping = false;
+        if (_restoreZoom is { } z) { wv.ZoomFactor = z; _restoreZoom = null; }
+        await UpdateYouTubeScriptAsync(_s.Blocker.Enabled);
+        if (_disposed || !ReferenceEquals(WebView, wv)) return;
         UpdateLifecycle();
         if (_pendingUrl is not null)
         {
@@ -188,6 +195,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
     }
 
     private bool _zoomApplied;
+    private double? _restoreZoom;
 
     // ---- Sleeping tabs & thumbnails ------------------------------------------------------
 
@@ -208,11 +216,23 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
             if (IsVisibleTab)
             {
                 _sleepTimer?.Stop();
+                _discardTimer?.Stop();
                 if (IsSleeping) { core.Resume(); IsSleeping = false; }
                 core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Normal;
                 return;
             }
             core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
+            var discardMinutes = _s.Settings.Current.DiscardTabsAfterMinutes;
+            if (discardMinutes > 0)
+            {
+                _discardTimer ??= new System.Windows.Threading.DispatcherTimer();
+                _discardTimer.Stop();
+                _discardTimer.Interval = TimeSpan.FromMinutes(discardMinutes);
+                _discardTimer.Tick -= OnDiscardTimer;
+                _discardTimer.Tick += OnDiscardTimer;
+                _discardTimer.Start();
+            }
+            else _discardTimer?.Stop();
             var minutes = _s.Settings.Current.SleepTabsAfterMinutes;
             if (minutes <= 0) return;
             _sleepTimer ??= new System.Windows.Threading.DispatcherTimer();
@@ -240,6 +260,52 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         if (Core is not { } core || IsVisibleTab || IsSleeping) return;
         core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
         try { IsSleeping = await core.TrySuspendAsync(); } catch { }
+    }
+
+    // ---- Memory saver: unloading tabs ------------------------------------------------------
+
+    private System.Windows.Threading.DispatcherTimer? _discardTimer;
+
+    /// <summary>
+    /// Whether the page can be unloaded without losing anything the user would miss: a hidden, idle,
+    /// normal-window web page that isn't playing audio and while no download is running.
+    /// </summary>
+    public bool CanDiscard =>
+        Core is not null && !IsVisibleTab && !IsPrivate && !IsPopupTarget && !IsNewTabPage && !IsCrashed
+        && !IsPlayingAudio && !IsLoading && _s.Downloads.ActiveCount == 0
+        && (IsReaderPage ? _readerOriginalUrl is not null : Url.StartsWith("http", StringComparison.OrdinalIgnoreCase));
+
+    private void OnDiscardTimer(object? sender, EventArgs e)
+    {
+        _discardTimer?.Stop();
+        if (Core is null || IsVisibleTab) return;
+        if (!Discard()) _discardTimer?.Start();
+    }
+
+    /// <summary>
+    /// Closes the tab's page to give all of its memory back. Title, icon and preview stay in the tab strip;
+    /// the page loads again from its address when the tab is opened.
+    /// </summary>
+    public bool Discard()
+    {
+        if (!CanDiscard) return false;
+        var url = IsReaderPage && _readerOriginalUrl is not null ? _readerOriginalUrl : Url;
+        _sleepTimer?.Stop();
+        _discardTimer?.Stop();
+        DisposeWebView();
+        _creating = null;
+        _filterInstalled = false;
+        _youTubeScriptId = null;
+        _restoreZoom = Zoom;
+        _pendingUrl = url;
+        Url = url;
+        CanGoBack = false;
+        CanGoForward = false;
+        IsPlayingAudio = false;
+        BlockedCount = 0;
+        IsSleeping = true;
+        IsDiscarded = true;
+        return true;
     }
 
     /// <summary>Takes a small screenshot of the page for tab hover previews.</summary>
@@ -289,6 +355,38 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         }
         catch (Exception ex) { _s.Paths.LogError("Blocker filter", ex); }
         IsBlockingActive = _s.Blocker.IsActiveFor(Url);
+        _ = UpdateYouTubeScriptAsync(want);
+    }
+
+    private string? _youTubeScriptId;
+    private bool _youTubeScriptWanted;
+    private bool _youTubeScriptBusy;
+
+    /// <summary>
+    /// Adds or removes the YouTube ad remover. It runs before YouTube's own scripts in every new document,
+    /// so it's registered once per tab and only takes effect on YouTube pages where blocking is on.
+    /// </summary>
+    private async Task UpdateYouTubeScriptAsync(bool want)
+    {
+        _youTubeScriptWanted = want;
+        if (Core is not { } core || _youTubeScriptBusy) return;
+        _youTubeScriptBusy = true;
+        try
+        {
+            // Loop so a change requested while the engine was busy still wins.
+            while (ReferenceEquals(Core, core) && _youTubeScriptWanted != (_youTubeScriptId is not null))
+            {
+                if (_youTubeScriptWanted)
+                    _youTubeScriptId = await core.AddScriptToExecuteOnDocumentCreatedAsync(YouTubeAdBlocker.Script);
+                else
+                {
+                    core.RemoveScriptToExecuteOnDocumentCreated(_youTubeScriptId!);
+                    _youTubeScriptId = null;
+                }
+            }
+        }
+        catch (Exception ex) { _s.Paths.LogError("YouTube ad blocker", ex); }
+        finally { _youTubeScriptBusy = false; }
     }
 
     private static Relay.Core.Blocking.RequestType MapContext(CoreWebView2WebResourceContext c) => c switch
@@ -345,6 +443,9 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         _navigatingUri = e.Uri;
         _pageHost = Uri.TryCreate(e.Uri, UriKind.Absolute, out var nu) ? nu.Host : string.Empty;
         IsBlockingActive = _s.Blocker.IsActiveFor(e.Uri);
+        // The YouTube ad remover follows the per-site switch too.
+        if (YouTubeAdBlocker.IsYouTubeHost(_pageHost)) _ = UpdateYouTubeScriptAsync(IsBlockingActive);
+        else if (_s.Blocker.Enabled && !_youTubeScriptWanted) _ = UpdateYouTubeScriptAsync(true);
         if (!e.IsRedirected) BlockedCount = 0;
         IsLoading = true;
         if (IsCrashed) IsCrashed = false;
@@ -589,6 +690,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         DisposeWebView();
         _creating = null;
         _filterInstalled = false;
+        _youTubeScriptId = null;
         _pendingUrl = url;
         IsCrashed = false;
         await EnsureCreatedAsync();
@@ -621,6 +723,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         if (_disposed) return;
         _disposed = true;
         _sleepTimer?.Stop();
+        _discardTimer?.Stop();
         _s.NewTab.StateChanged -= OnNewTabStateChanged;
         DisposeWebView();
     }

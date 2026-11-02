@@ -17,6 +17,7 @@ public partial class App : Application
 {
     private SingleInstance? _single;
     private SettingsWindow? _settingsWindow;
+    private TaskManagerWindow? _taskManager;
 
     public static new App Current => (App)Application.Current;
 
@@ -212,9 +213,23 @@ public partial class App : Application
         _settingsWindow.Show();
     }
 
+    public void ShowTaskManager()
+    {
+        if (_taskManager is { IsLoaded: true })
+        {
+            if (_taskManager.WindowState == WindowState.Minimized) _taskManager.WindowState = WindowState.Normal;
+            _taskManager.Activate();
+            return;
+        }
+        _taskManager = new TaskManagerWindow(Services);
+        _taskManager.Closed += (_, _) => _taskManager = null;
+        _taskManager.Show();
+    }
+
     public void CloseAuxiliaryWindows()
     {
         _settingsWindow?.Close();
+        _taskManager?.Close();
     }
 
     public static void OpenExternal(string url)

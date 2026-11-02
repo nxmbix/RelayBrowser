@@ -85,8 +85,10 @@ Relay/
 **What's new in 1.1**
 * **Search engine choice on first launch** (shuffled, nothing preselected) — now including Yahoo.
 * **RELAY Setup.exe** — a custom installer wizard (per-user, no admin, no Windows Installer) with update-in-place and a matching uninstaller, alongside the portable ZIP.
-* **Built-in ad and tracker blocker** using EasyList, EasyPrivacy, Peter Lowe's list and (optional) cookie-notice hiding; a shield in the address bar shows how much was blocked and turns blocking off for a site; your own filter rules; a running total on the new tab page.
+* **Built-in ad and tracker blocker** using EasyList, EasyPrivacy, Peter Lowe's list and (optional) cookie-notice hiding; a shield in the address bar shows how much was blocked and turns blocking off for a site; your own filter rules; a running total on the new tab page. On YouTube, ad data is removed from the player before it loads and any ad that still starts is skipped.
 * **Sleeping tabs**: background tabs use less memory right away and are suspended after 15 minutes (configurable; tabs playing audio stay awake). The engine also starts while the window is being built.
+* **Memory saver**: tabs left in the background for an hour (configurable) are unloaded completely, freeing all of their memory, and reload when you open them. Tabs playing audio, private tabs and tabs with a download running are kept. Right-click a tab → "Unload tab to free memory" to do it now.
+* **Task manager** (Shift+Esc): real memory and CPU for every tab and every WebView2 process, measured like Windows Task Manager, with a total for the whole browser.
 * **Tab hover previews** with a thumbnail, and a gentle animation when tabs open.
 * **Tab groups** with names and nine colours: collapse, rename, recolour, ungroup or close a group; groups are restored with your session.
 * **Vertical tabs** (collapsible to icons) as an alternative to the tab strip.
@@ -152,6 +154,7 @@ Relay/
 | Ctrl+ + / − / 0 | Zoom in / out / reset | F11 | Full screen |
 | Alt+F | Menu | F12 | Developer tools |
 | Ctrl+K | Command palette | F9 | Reader view |
+| Shift+Esc | Task manager | | |
 
 ---
 
@@ -170,12 +173,12 @@ Relay/
 ## Known limitations (honest list)
 
 * **Built and unit-tested in a Linux environment.** The solution compiles cleanly for Windows (0 warnings), the 81 unit tests pass, the ad-blocking engine was checked against the real EasyList/EasyPrivacy lists, and the new tab page and reader view were rendered and click-tested in Chromium — but the WPF window itself can't be launched there, so new 1.1 features were not clicked through by hand on Windows. Please report anything that misbehaves on first run; `relay-errors.log` in the data folder records unexpected errors.
-* No browser extensions (WebView2's extension support is limited and unstable), no sync, no tab groups, no reader mode.
+* No browser extensions (WebView2's extension support is limited and unstable), no sync.
 * WebView2 doesn't tell RELAY whether a link was Ctrl-clicked, so links that open new tabs always open in the foreground.
 * Tabs can be reordered within a window but not dragged out into another window.
 * Pause/resume works only when the server supports resuming; otherwise the download restarts from *Retry*.
 * **No list of saved passwords.** WebView2 doesn't let apps read the passwords its engine saves, so RELAY can offer to save and fill them (encrypted by Windows) and can remove them all, but it can't show or edit them one by one. A dedicated password manager is the better choice if you need that.
-* The ad blocker works on network requests and element hiding. It doesn't run scripts inside pages, so ads served from the same address as the content (some YouTube ads, for example) may still appear. Videos inside embedded frames can't be put into picture-in-picture from the menu.
+* The ad blocker works on network requests and element hiding, plus a small script on YouTube only. Ads served from the same address as the content on other sites may still appear, and YouTube can change its player at any time. Videos inside embedded frames can't be put into picture-in-picture from the menu.
 * `RELAY Setup.exe` is about 120 MB because it carries its own copy of .NET so nothing else has to be installed first. It isn't code-signed, so SmartScreen asks for confirmation the first time.
 * Cookie management and clearing site data need at least one page open in a normal window (that's when the engine profile is live).
 * "Do Not Track" isn't offered: WebView2 has no supported switch for it and RELAY doesn't inject headers into every request.

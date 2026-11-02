@@ -125,6 +125,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         get => SleepOptions.FirstOrDefault(o => o.Minutes == S.SleepTabsAfterMinutes) ?? SleepOptions[1];
         set { if (value is not null) Set<int>(s => s.SleepTabsAfterMinutes = value.Minutes); }
     }
+    public IReadOnlyList<SleepOption> DiscardOptions { get; } =
+        [new(30, "After 30 minutes"), new(60, "After 1 hour"), new(120, "After 2 hours"), new(240, "After 4 hours"), new(0, "Never")];
+    public SleepOption? DiscardAfter
+    {
+        get => DiscardOptions.FirstOrDefault(o => o.Minutes == S.DiscardTabsAfterMinutes) ?? DiscardOptions[1];
+        set { if (value is not null) Set<int>(s => s.DiscardTabsAfterMinutes = value.Minutes); }
+    }
     public bool TabHoverPreviews { get => S.TabHoverPreviews; set => Set<bool>(s => s.TabHoverPreviews = value); }
 
     // ---- Appearance -------------------------------------------------------------------

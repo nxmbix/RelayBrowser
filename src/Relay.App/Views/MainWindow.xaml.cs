@@ -488,6 +488,7 @@ public partial class MainWindow : Window
                 default: handled = false; break;
             }
         }
+        else if (m == ModifierKeys.Shift && key == Key.Escape) App.Current.ShowTaskManager();
         else handled = false;
 
         if (handled) e.Handled = true;
@@ -593,7 +594,7 @@ public partial class MainWindow : Window
         if (TabsList.ItemContainerGenerator.ContainerFromItem(tab) is not UIElement container) return;
         PreviewTitle.Text = tab.Title;
         PreviewHost.Text = tab.IsNewTabPage ? "New tab" : UrlDisplay.Short(tab.Url);
-        PreviewState.Text = tab.IsSleeping ? "Sleeping to save memory" : tab.IsPlayingAudio ? "Playing audio" : string.Empty;
+        PreviewState.Text = tab.IsDiscarded ? "Unloaded to save memory · reloads when opened" : tab.IsSleeping ? "Sleeping to save memory" : tab.IsPlayingAudio ? "Playing audio" : string.Empty;
         PreviewState.Visibility = PreviewState.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         // The active tab is already on screen, so its preview only shows the text.
         var showImage = tab.Thumbnail is not null && !ReferenceEquals(tab, ViewModel.ActiveTab);
@@ -742,6 +743,7 @@ public partial class MainWindow : Window
         menu.Items.Add(Item("Add to reading list", Icons.ReadingList, () => _ = vm.AddToReadingListAsync(tab), enabled: !tab.IsNewTabPage));
         menu.Items.Add(Item("Copy link", Icons.Link, () => TrySetClipboard(tab.Url), enabled: !tab.IsNewTabPage));
         menu.Items.Add(Item("Put tab to sleep", "\uE708", () => _ = tab.SleepNowAsync(), enabled: tab.IsCreated && !tab.IsVisibleTab && !tab.IsSleeping));
+        menu.Items.Add(Item("Unload tab to free memory", "\uE74D", () => tab.Discard(), enabled: tab.CanDiscard));
         menu.Items.Add(new Separator());
         // Split view
         if (vm.IsSplit && (ReferenceEquals(tab, vm.SplitLeft) || ReferenceEquals(tab, vm.SplitRight)))
@@ -816,6 +818,7 @@ public partial class MainWindow : Window
         menu.Items.Add(Item("Vertical tabs", vm.VerticalTabs ? Icons.Check : "\uE8A4", ToggleVerticalTabs));
         menu.Items.Add(Item("Command palette", Icons.Search, OpenPalette, "Ctrl+K"));
         menu.Items.Add(Item("Developer tools", Icons.Code, () => vm.ActiveTab?.OpenDevTools(), "F12", vm.ActiveTab?.IsCreated == true));
+        menu.Items.Add(Item("Task manager", "\uE9D9", () => App.Current.ShowTaskManager(), "Shift+Esc"));
         menu.Items.Add(new Separator());
         menu.Items.Add(Item("Clear browsing data…", Icons.Clear, () => OnClearData(this, new RoutedEventArgs())));
         menu.Items.Add(Item("Settings", Icons.Settings, () => App.Current.ShowSettings()));
@@ -1592,6 +1595,8 @@ public partial class MainWindow : Window
             new(App.Current.Theme.IsDark ? "Switch to light theme" : "Switch to dark theme", "Appearance", "\uE793", "",
                 () => _s.Settings.Update(s => s.Theme = App.Current.Theme.IsDark ? Relay.Core.Settings.ThemeMode.Light : Relay.Core.Settings.ThemeMode.Dark)),
             new("Put background tabs to sleep", "Performance", "\uE708", "", () => { foreach (var t in vm.Tabs) _ = t.SleepNowAsync(); }),
+            new("Unload background tabs to free memory", "Performance", "\uE74D", "", () => { foreach (var t in vm.Tabs) t.Discard(); }),
+            new("Task manager", "Performance", "\uE9D9", "Shift+Esc", () => App.Current.ShowTaskManager()),
             new("About RELAY", "RELAY", Icons.Info, "", () => App.Current.ShowSettings("about")),
         };
         if (tab is not null)

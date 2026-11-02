@@ -146,6 +146,14 @@
                                         </StackPanel>
                                     </DockPanel>
                                     <Border Style="{StaticResource Divider}"/>
+                                    <DockPanel Style="{StaticResource Row}">
+                                        <ComboBox DockPanel.Dock="Right" Width="200" ItemsSource="{Binding DiscardOptions}" SelectedItem="{Binding DiscardAfter}" DisplayMemberPath="Text"/>
+                                        <StackPanel>
+                                            <TextBlock Text="Memory saver: unload background tabs" Style="{StaticResource Label}"/>
+                                            <TextBlock Style="{StaticResource Hint}" Text="Unloaded tabs give all of their memory back and reload when you open them. Tabs playing audio, private tabs and tabs with a download running are kept. Press Shift+Esc to see what each tab uses."/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <Border Style="{StaticResource Divider}"/>
                                     <CheckBox Style="{StaticResource ToggleSwitch}" Content="Show a preview when hovering over a tab" IsChecked="{Binding TabHoverPreviews}"/>
                                 </StackPanel>
                             </Border>

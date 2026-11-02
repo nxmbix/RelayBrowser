@@ -31,6 +31,8 @@ public sealed class RelaySettings
     public bool SidebarEnabled { get; set; } = true;
     /// <summary>Background tabs sleep after this many minutes (0 = never).</summary>
     public int SleepTabsAfterMinutes { get; set; } = 15;
+    /// <summary>Background tabs are unloaded completely (their memory is freed) after this many minutes (0 = never).</summary>
+    public int DiscardTabsAfterMinutes { get; set; } = 60;
     public bool TabHoverPreviews { get; set; } = true;
     public bool VerticalTabs { get; set; }
     public bool VerticalTabsCollapsed { get; set; }
