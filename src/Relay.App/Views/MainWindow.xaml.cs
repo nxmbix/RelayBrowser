@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using Relay.App.Controls;
@@ -56,9 +57,11 @@ public partial class MainWindow : Window
         ViewModel.SplitChanged += (_, _) => ApplySplitLayout();
         ViewModel.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(MainViewModel.VerticalTabsCollapsed)) UpdateVerticalWidth();
+            if (e.PropertyName == nameof(MainViewModel.VerticalTabsNarrow)) UpdateVerticalWidth();
+            if (e.PropertyName == nameof(MainViewModel.VerticalTabs)) ApplyZenLayout();
         };
-        Loaded += (_, _) => UpdateVerticalWidth();
+        Loaded += (_, _) => { UpdateVerticalWidth(); ApplyZenLayout(); };
+        Toolbar.SizeChanged += (_, _) => ApplyDensity();
 
         StripHost.SizeChanged += (_, _) => TabsList.MaxWidth = Math.Max(0, StripHost.ActualWidth - 40 - 56);
         StateChanged += (_, _) => UpdateMaximizedLayout();
@@ -92,6 +95,8 @@ public partial class MainWindow : Window
     private void ApplyDensity()
     {
         var h = TryFindResource("Strip.Height") is double d ? d : 44;
+        // Vertical tabs: the tab strip is hidden and the toolbar becomes the title bar.
+        if (ViewModel.VerticalTabs) h = Toolbar.ActualHeight > 0 ? Toolbar.ActualHeight : 48;
         Chrome.CaptionHeight = _isFullScreen ? 0 : h;
     }
 
@@ -101,14 +106,14 @@ public partial class MainWindow : Window
         {
             // A maximized custom-chrome window overhangs the screen by the resize border.
             RootBorder.Padding = SystemParameters.WindowResizeBorderThickness;
-            MaxButton.Content = Icons.Restore;
-            MaxButton.ToolTip = "Restore";
+            MaxButton.Content = MaxButton2.Content = Icons.Restore;
+            MaxButton.ToolTip = MaxButton2.ToolTip = "Restore";
         }
         else
         {
             RootBorder.Padding = new Thickness(0);
-            MaxButton.Content = Icons.Maximize;
-            MaxButton.ToolTip = "Maximize";
+            MaxButton.Content = MaxButton2.Content = Icons.Maximize;
+            MaxButton.ToolTip = MaxButton2.ToolTip = "Maximize";
         }
     }
 
@@ -197,7 +202,7 @@ public partial class MainWindow : Window
         Toolbar.Visibility = chromeVisibility;
         Rail.Visibility = full ? Visibility.Collapsed : (ViewModel.SidebarEnabled ? Visibility.Visible : Visibility.Collapsed);
         SidePanel.Visibility = full || !ViewModel.Sidebar.IsOpen ? Visibility.Collapsed : Visibility.Visible;
-        ApplyDensity();
+        ApplyZenLayout();
 
         if (full)
         {
@@ -654,7 +659,26 @@ public partial class MainWindow : Window
 
     private void OnTabCloseClick(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is BrowserTab tab) ViewModel.CloseTab(tab);
+        if ((sender as FrameworkElement)?.DataContext is not BrowserTab tab) return;
+        var container = (VTabsList.ItemContainerGenerator.ContainerFromItem(tab) ?? TabsList.ItemContainerGenerator.ContainerFromItem(tab)) as FrameworkElement;
+        if (container is not { IsVisible: true }) { ViewModel.CloseTab(tab); return; }
+        // Fade the tab out before it is removed.
+        container.IsHitTestVisible = false;
+        var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(130));
+        fade.Completed += (_, _) =>
+        {
+            ViewModel.CloseTab(tab);
+            container.BeginAnimation(OpacityProperty, null);
+            container.IsHitTestVisible = true;
+        };
+        container.BeginAnimation(OpacityProperty, fade);
+    }
+
+    private void OnPinnedMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (TabFrom(e.OriginalSource) is not { } tab) return;
+        ViewModel.ActiveTab = tab;
+        e.Handled = true;
     }
 
     private void OnTabMuteClick(object sender, RoutedEventArgs e)
@@ -736,6 +760,7 @@ public partial class MainWindow : Window
         var index = vm.Tabs.IndexOf(tab);
         var menu = new ContextMenu();
         menu.Items.Add(Item("New tab to the right", Icons.Add, () => vm.AddTab(null, true, index + 1), "Ctrl+T"));
+        menu.Items.Add(Item(tab.IsPinned ? "Unpin tab" : "Pin tab", tab.IsPinned ? "\uE77A" : "\uE718", () => vm.TogglePin(tab)));
         menu.Items.Add(new Separator());
         menu.Items.Add(Item("Reload", Icons.Refresh, tab.Reload, "Ctrl+R"));
         menu.Items.Add(Item("Duplicate", Icons.Duplicate, () => vm.DuplicateTab(tab)));
@@ -1379,10 +1404,62 @@ public partial class MainWindow : Window
 
     private void OnVerticalNewTab(object sender, RoutedEventArgs e) => ViewModel.NewTab();
 
-    private void OnToggleVerticalCollapse(object sender, RoutedEventArgs e) =>
+    private void OnToggleVerticalCollapse(object sender, RoutedEventArgs e)
+    {
+        _hoverExpandTimer?.Stop();
+        ViewModel.SidebarHoverExpanded = false;
         _s.Settings.Update(s => s.VerticalTabsCollapsed = !s.VerticalTabsCollapsed);
+    }
 
-    private void UpdateVerticalWidth() => VerticalTabsPanel.Width = ViewModel.VerticalTabsCollapsed ? 56 : 248;
+    // Collapsed vertical tabs expand while the mouse rests on them (Zen's compact mode).
+    private DispatcherTimer? _hoverExpandTimer;
+
+    private void OnVerticalPanelEnter(object sender, MouseEventArgs e)
+    {
+        if (!ViewModel.VerticalTabsCollapsed) return;
+        if (_hoverExpandTimer is null)
+        {
+            _hoverExpandTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
+            _hoverExpandTimer.Tick += (_, _) =>
+            {
+                _hoverExpandTimer.Stop();
+                if (VerticalTabsPanel.IsMouseOver) ViewModel.SidebarHoverExpanded = true;
+            };
+        }
+        _hoverExpandTimer.Start();
+    }
+
+    private void OnVerticalPanelLeave(object sender, MouseEventArgs e)
+    {
+        _hoverExpandTimer?.Stop();
+        ViewModel.SidebarHoverExpanded = false;
+    }
+
+    /// <summary>
+    /// Vertical tabs use the Zen-style layout: no tab strip, the toolbar doubles as the title bar,
+    /// and the page floats as a rounded card on the window background.
+    /// </summary>
+    private void ApplyZenLayout()
+    {
+        var vertical = ViewModel.VerticalTabs;
+        var zen = vertical && !_isFullScreen;
+        StripRow.Visibility = _isFullScreen || vertical ? Visibility.Collapsed : Visibility.Visible;
+        ToolbarCaption.Visibility = zen ? Visibility.Visible : Visibility.Collapsed;
+        Toolbar.SetResourceReference(Border.BackgroundProperty, zen ? "Brush.Chrome" : "Brush.Toolbar");
+        Toolbar.BorderThickness = zen ? new Thickness(0) : new Thickness(0, 0, 0, 1);
+        ContentGrid.SetResourceReference(Panel.BackgroundProperty, zen ? "Brush.Chrome" : "Brush.Toolbar");
+        ContentArea.Margin = zen ? new Thickness(0, 0, 8, 8) : new Thickness(0);
+        ViewModel.PageCornerRadius = zen ? 10 : 0;
+        ApplyDensity();
+    }
+
+    private void UpdateVerticalWidth()
+    {
+        var target = ViewModel.VerticalTabsNarrow ? 56.0 : 248.0;
+        if (!IsLoaded) { VerticalTabsPanel.Width = target; return; }
+        VerticalTabsPanel.BeginAnimation(WidthProperty,
+            new DoubleAnimation(target, TimeSpan.FromMilliseconds(240)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+    }
 
     // ======================================================================================
     // Split view

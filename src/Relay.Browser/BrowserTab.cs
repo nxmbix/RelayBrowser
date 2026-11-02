@@ -63,6 +63,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
     [ObservableProperty] private ImageSource? _thumbnail;
     /// <summary>True for a moment after the tab is created (drives the entrance animation).</summary>
     [ObservableProperty] private bool _isNew = true;
+    [ObservableProperty] private bool _isPinned;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowWebView))] private bool _isObscured;
     [ObservableProperty] private int _blockedCount;
     [ObservableProperty] private bool _isBlockingActive;

@@ -91,7 +91,8 @@ Relay/
 * **Task manager** (Shift+Esc): real memory and CPU for every tab and every WebView2 process, measured like Windows Task Manager, with a total for the whole browser.
 * **Tab hover previews** with a thumbnail, and a gentle animation when tabs open.
 * **Tab groups** with names and nine colours: collapse, rename, recolour, ungroup or close a group; groups are restored with your session.
-* **Vertical tabs** (collapsible to icons) as an alternative to the tab strip.
+* **Vertical tabs, Zen-style**: pinned tabs as tiles at the top (right-click a tab → Pin tab), the toolbar doubles as the title bar and the page floats as a rounded card. Collapse the list to icons and it slides open when you hover it.
+* **Animations**: tabs slide in and fade out, buttons spring when pressed, hovers fade, and menus and tooltips fade in.
 * **Split view**: two tabs side by side with a draggable divider; the address bar follows the pane you click.
 * **Command palette (Ctrl+K)**: fuzzy search over every command, your open tabs, bookmarks and history.
 * **Reader view (F9)** with serif/sans, text size and light/sepia/dark themes.

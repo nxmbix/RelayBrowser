@@ -168,19 +168,29 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
-        <!-- ===== Vertical tab ===== -->
+        <!-- ===== Vertical tab (Zen-style row) ===== -->
         <DataTemplate x:Key="VTabTemplate" DataType="{x:Type b:BrowserTab}">
-            <Border x:Name="Row" Height="34" Margin="6,1" CornerRadius="8" Background="Transparent" Padding="9,0,4,0"
-                    ToolTip="{Binding Title}" ToolTipService.InitialShowDelay="700">
-                <Grid>
+            <Grid x:Name="Row" Height="36" Margin="8,1" Background="Transparent"
+                  ToolTip="{Binding Title}" ToolTipService.InitialShowDelay="700">
+                <Grid.RenderTransform>
+                    <TranslateTransform x:Name="RowShift"/>
+                </Grid.RenderTransform>
+                <Border x:Name="SplitLayer" CornerRadius="10" Background="{DynamicResource Brush.Hover}" Visibility="Collapsed"/>
+                <Border x:Name="HoverLayer" CornerRadius="10" Background="{DynamicResource Brush.Hover}" Opacity="0"/>
+                <Border x:Name="ActiveLayer" CornerRadius="10" Background="{DynamicResource Brush.TabActive}" Opacity="0">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="10" ShadowDepth="1" Direction="270" Opacity="0.18" Color="Black"/>
+                    </Border.Effect>
+                </Border>
+                <Grid x:Name="Inner" Margin="10,0,4,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Border Width="3" Margin="-9,7,6,7" CornerRadius="1.5" HorizontalAlignment="Left" Background="{Binding Group.Brush}"
+                    <Border Width="3" Margin="-10,9,7,9" CornerRadius="1.5" HorizontalAlignment="Left" Background="{Binding Group.Brush}"
                             Visibility="{Binding Group, Converter={StaticResource NullToVis}}"/>
-                    <Grid Width="16" Height="16" Margin="0,0,10,0" HorizontalAlignment="Left">
+                    <Grid x:Name="VIcon" Width="16" Height="16" Margin="0,0,10,0" HorizontalAlignment="Left">
                         <Control Focusable="False">
                             <Control.Style>
                                 <Style TargetType="Control" BasedOn="{StaticResource Spinner}">
@@ -193,7 +203,7 @@
                                 </Style>
                             </Control.Style>
                         </Control>
-                        <Image Source="{Binding Favicon}" Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality">
+                        <Image Source="{Binding Favicon}" RenderOptions.BitmapScalingMode="HighQuality">
                             <Image.Style>
                                 <Style TargetType="Image">
                                     <Style.Triggers>
@@ -215,29 +225,149 @@
                     </Grid>
                     <TextBlock x:Name="VTitle" Grid.Column="1" Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12.5"
-                               Visibility="{Binding DataContext.VerticalTabsCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisInverted}}"/>
+                               Visibility="{Binding DataContext.VerticalTabsNarrow, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisInverted}}"/>
                     <Button x:Name="VClose" Grid.Column="2" Style="{StaticResource IconButton.Small}" Width="22" Height="22" FontSize="10"
                             Content="{x:Static c:Icons.Close}" Visibility="Hidden" Click="OnTabCloseClick" ToolTip="Close tab (Ctrl+W)"/>
                 </Grid>
-            </Border>
+            </Grid>
             <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsNew}" Value="True">
+                    <DataTrigger.EnterActions><BeginStoryboard><Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="Row" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.18"/>
+                                <DoubleAnimation Storyboard.TargetName="RowShift" Storyboard.TargetProperty="X" From="-22" To="0" Duration="0:0:0.28">
+                                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                    </Storyboard></BeginStoryboard></DataTrigger.EnterActions>
+                </DataTrigger>
                 <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
-                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource Brush.Hover}"/>
                     <Setter TargetName="VClose" Property="Visibility" Value="Visible"/>
+                    <Trigger.EnterActions><BeginStoryboard><Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="HoverLayer" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12"/>
+                    </Storyboard></BeginStoryboard></Trigger.EnterActions>
+                    <Trigger.ExitActions><BeginStoryboard><Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="HoverLayer" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"/>
+                    </Storyboard></BeginStoryboard></Trigger.ExitActions>
                 </Trigger>
                 <DataTrigger Binding="{Binding IsSplitVisible}" Value="True">
-                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource Brush.Hover}"/>
+                    <Setter TargetName="SplitLayer" Property="Visibility" Value="Visible"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsActive}" Value="True">
-                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource Brush.AccentSubtle}"/>
                     <Setter TargetName="VTitle" Property="Foreground" Value="{DynamicResource Brush.Text}"/>
                     <Setter TargetName="VClose" Property="Visibility" Value="Visible"/>
+                    <DataTrigger.EnterActions><BeginStoryboard><Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="ActiveLayer" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.20">
+                                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                    </Storyboard></BeginStoryboard></DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions><BeginStoryboard><Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="ActiveLayer" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.20"/>
+                    </Storyboard></BeginStoryboard></DataTrigger.ExitActions>
                 </DataTrigger>
-                <DataTrigger Binding="{Binding DataContext.VerticalTabsCollapsed, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                <DataTrigger Binding="{Binding DataContext.VerticalTabsNarrow, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                     <Setter TargetName="VClose" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="Inner" Property="Margin" Value="12,0,0,0"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsSleeping}" Value="True">
                     <Setter TargetName="VTitle" Property="Opacity" Value="0.6"/>
+                    <Setter TargetName="VIcon" Property="Opacity" Value="0.55"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- ===== Pinned tab tile (top of the vertical tab list) ===== -->
+        <DataTemplate x:Key="PinnedTileTemplate" DataType="{x:Type b:BrowserTab}">
+            <Grid x:Name="Tile" Height="42" Margin="3" Background="Transparent" RenderTransformOrigin="0.5,0.5"
+                  ToolTip="{Binding Title}" ToolTipService.InitialShowDelay="500">
+                <Grid.RenderTransform>
+                    <ScaleTransform x:Name="TileScale"/>
+                </Grid.RenderTransform>
+                <Border CornerRadius="12" Background="{DynamicResource Brush.Hover}"/>
+                <Border x:Name="TileHover" CornerRadius="12" Background="{DynamicResource Brush.Hover}" Opacity="0"/>
+                <Border x:Name="TileActive" CornerRadius="12" Background="{DynamicResource Brush.TabActive}"
+                        BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="1.5" Opacity="0">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="10" ShadowDepth="1" Direction="270" Opacity="0.18" Color="Black"/>
+                    </Border.Effect>
+                </Border>
+                <Grid x:Name="TileIcon" Width="18" Height="18">
+                        <Control Focusable="False">
+                            <Control.Style>
+                                <Style TargetType="Control" BasedOn="{StaticResource Spinner}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Control.Style>
+                        </Control>
+                        <Image Source="{Binding Favicon}" RenderOptions.BitmapScalingMode="HighQuality">
+                            <Image.Style>
+                                <Style TargetType="Image">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Image.Style>
+                        </Image>
+                        <TextBlock Style="{StaticResource Text.Icon}" FontSize="14" Foreground="{DynamicResource Brush.TextTertiary}" Text="{x:Static c:Icons.Globe}">
+                            <TextBlock.Visibility>
+                                <MultiBinding Converter="{x:Static c:MainWindowConverters.PlaceholderIcon}">
+                                    <Binding Path="IsLoading"/>
+                                    <Binding Path="Favicon"/>
+                                </MultiBinding>
+                            </TextBlock.Visibility>
+                        </TextBlock>
+                </Grid>
+                <Ellipse Width="6" Height="6" Fill="{DynamicResource Brush.Accent}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"
+                         IsHitTestVisible="False" Visibility="{Binding IsPlayingAudio, Converter={StaticResource BoolToVis}}"/>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsNew}" Value="True">
+                    <DataTrigger.EnterActions><BeginStoryboard><Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="TileScale" Storyboard.TargetProperty="ScaleX" From="0.6" To="1" Duration="0:0:0.26">
+                                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation Storyboard.TargetName="TileScale" Storyboard.TargetProperty="ScaleY" From="0.6" To="1" Duration="0:0:0.26">
+                                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                    </Storyboard></BeginStoryboard></DataTrigger.EnterActions>
+                </DataTrigger>
+                <Trigger SourceName="Tile" Property="IsMouseOver" Value="True">
+                    <Trigger.EnterActions><BeginStoryboard><Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="TileHover" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12"/>
+                                <DoubleAnimation Storyboard.TargetName="TileScale" Storyboard.TargetProperty="ScaleX" To="1.05" Duration="0:0:0.16">
+                                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation Storyboard.TargetName="TileScale" Storyboard.TargetProperty="ScaleY" To="1.05" Duration="0:0:0.16">
+                                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                    </Storyboard></BeginStoryboard></Trigger.EnterActions>
+                    <Trigger.ExitActions><BeginStoryboard><Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="TileHover" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"/>
+                                <DoubleAnimation Storyboard.TargetName="TileScale" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.22">
+                                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation Storyboard.TargetName="TileScale" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.22">
+                                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                    </Storyboard></BeginStoryboard></Trigger.ExitActions>
+                </Trigger>
+                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                    <DataTrigger.EnterActions><BeginStoryboard><Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="TileActive" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.20">
+                                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                    </Storyboard></BeginStoryboard></DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions><BeginStoryboard><Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="TileActive" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.20"/>
+                    </Storyboard></BeginStoryboard></DataTrigger.ExitActions>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSleeping}" Value="True">
+                    <Setter TargetName="TileIcon" Property="Opacity" Value="0.55"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -261,7 +391,7 @@
                     </TextBlock>
                     <Ellipse Width="9" Height="9" Fill="{Binding Brush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                               Visibility="{Binding DataContext.VerticalTabsCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisInverted}}"/>
+                               Visibility="{Binding DataContext.VerticalTabsNarrow, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisInverted}}"/>
                 </DockPanel>
             </Border>
         </DataTemplate>
@@ -295,6 +425,7 @@
                 </Grid.RowDefinitions>
                 <Border x:Name="PaneBar" Height="3" Background="{DynamicResource Brush.Border}" Visibility="Collapsed"/>
                 <ContentControl Grid.Row="1" Content="{Binding WebView}" Focusable="False"
+                                c:RoundedHost.Radius="{Binding DataContext.PageCornerRadius, RelativeSource={RelativeSource AncestorType=Window}}"
                                 Visibility="{Binding ShowWebView, Converter={StaticResource BoolToVisHidden}}"/>
                 <Grid Grid.Row="1" Background="{DynamicResource Brush.Toolbar}" Visibility="{Binding ShowCrashPanel, Converter={StaticResource BoolToVis}}">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="420">
@@ -489,7 +620,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Orientation="Horizontal">
+                    <StackPanel Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
                         <Button Style="{StaticResource IconButton}" Content="{x:Static c:Icons.Back}" Command="{Binding BackCommand}"
                                 IsEnabled="{Binding ActiveTab.CanGoBack, FallbackValue=False}" ToolTip="Back (Alt+Left)"/>
                         <Button Style="{StaticResource IconButton}" Content="{x:Static c:Icons.Forward}" Command="{Binding ForwardCommand}"
@@ -513,7 +644,7 @@
                     </StackPanel>
 
                     <!-- Address bar -->
-                    <Border x:Name="Omnibox" Grid.Column="1" Height="36" Margin="8,0" CornerRadius="18"
+                    <Border x:Name="Omnibox" WindowChrome.IsHitTestVisibleInChrome="True" Grid.Column="1" Height="36" Margin="8,0" CornerRadius="18"
                             Background="{DynamicResource Brush.Field}" BorderBrush="Transparent" BorderThickness="1">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -634,7 +765,7 @@
                         </Grid>
                     </Border>
 
-                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
                         <Button Style="{StaticResource IconButton}" Content="{x:Static c:Icons.ReadingList}" Click="OnAddToReadingList"
                                 ToolTip="Add to reading list"/>
                         <Grid>
@@ -648,12 +779,17 @@
                                 ToolTip="Sidebar (Ctrl+Shift+B)"/>
                         <Button x:Name="MenuButton" Style="{StaticResource IconButton}" Content="{x:Static c:Icons.More}" Click="OnMenuClick"
                                 ToolTip="Settings and more (Alt+F)"/>
+                        <StackPanel x:Name="ToolbarCaption" Orientation="Horizontal" Margin="8,-6,-8,-6" Visibility="Collapsed">
+                            <Button Style="{StaticResource CaptionButton}" Content="{x:Static c:Icons.Minimize}" Click="OnMinimize" ToolTip="Minimize"/>
+                            <Button x:Name="MaxButton2" Style="{StaticResource CaptionButton}" Content="{x:Static c:Icons.Maximize}" Click="OnMaximize" ToolTip="Maximize"/>
+                            <Button Style="{StaticResource CaptionButton.Close}" Content="{x:Static c:Icons.ChromeClose}" Click="OnCloseWindow" ToolTip="Close"/>
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
             </Border>
 
             <!-- ================= Content ================= -->
-            <Grid Grid.Row="2" Background="{DynamicResource Brush.Toolbar}">
+            <Grid x:Name="ContentGrid" Grid.Row="2" Background="{DynamicResource Brush.Toolbar}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
@@ -661,31 +797,63 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Vertical tabs -->
-                <Border x:Name="VerticalTabsPanel" Width="248" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,1,0"
-                        Background="{DynamicResource Brush.Chrome}" Visibility="{Binding VerticalTabs, Converter={StaticResource BoolToVis}}">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Top" Margin="6,8,6,4" Height="34" HorizontalContentAlignment="Left" Click="OnVerticalNewTab"
+                <!-- Vertical tabs (Zen-style sidebar: pinned tiles, new tab, tab list) -->
+                <Border x:Name="VerticalTabsPanel" Width="248" Background="{DynamicResource Brush.Chrome}" ClipToBounds="True"
+                        MouseEnter="OnVerticalPanelEnter" MouseLeave="OnVerticalPanelLeave"
+                        Visibility="{Binding VerticalTabs, Converter={StaticResource BoolToVis}}">
+                    <DockPanel Margin="0,2,0,0">
+                        <ItemsControl x:Name="PinnedList" DockPanel.Dock="Top" ItemsSource="{Binding PinnedTabs}" ItemTemplate="{StaticResource PinnedTileTemplate}"
+                                      Margin="5,0,5,2" Focusable="False"
+                                      PreviewMouseLeftButtonDown="OnPinnedMouseDown" PreviewMouseUp="OnTabsMiddleUp" MouseRightButtonUp="OnTabsRightClick"
+                                      Visibility="{Binding PinnedTabs.Count, Converter={StaticResource PositiveToVis}}">
+                            <ItemsControl.Style>
+                                <Style TargetType="ItemsControl">
+                                    <Setter Property="ItemsPanel">
+                                        <Setter.Value>
+                                            <ItemsPanelTemplate><UniformGrid Columns="3"/></ItemsPanelTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding VerticalTabsNarrow}" Value="True">
+                                            <Setter Property="ItemsPanel">
+                                                <Setter.Value>
+                                                    <ItemsPanelTemplate><UniformGrid Columns="1"/></ItemsPanelTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ItemsControl.Style>
+                        </ItemsControl>
+                        <Border DockPanel.Dock="Top" Height="1" Margin="16,4,16,6" Background="{DynamicResource Brush.Border}"
+                                Visibility="{Binding PinnedTabs.Count, Converter={StaticResource PositiveToVis}}"/>
+                        <Button DockPanel.Dock="Top" Margin="8,2,8,4" Height="36" HorizontalContentAlignment="Left" Click="OnVerticalNewTab"
                                 ToolTip="New tab (Ctrl+T)">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Bd" CornerRadius="8" Background="Transparent" Padding="10,0">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Grid Background="Transparent">
+                                        <Border x:Name="Hover" CornerRadius="10" Background="{DynamicResource Brush.Hover}" Opacity="0"/>
+                                        <StackPanel x:Name="Content" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                                             <TextBlock Style="{StaticResource Text.Icon}" FontSize="13" Text="{x:Static c:Icons.Add}" Foreground="{DynamicResource Brush.TextSecondary}"/>
                                             <TextBlock Text="New tab" Margin="12,0,0,0" Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12.5"
-                                                       Visibility="{Binding VerticalTabsCollapsed, Converter={StaticResource BoolToVisInverted}}"/>
+                                                       Visibility="{Binding VerticalTabsNarrow, Converter={StaticResource BoolToVisInverted}}"/>
                                         </StackPanel>
-                                    </Border>
+                                    </Grid>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.Hover}"/>
+                                            <Trigger.EnterActions><BeginStoryboard><Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12"/>
+                                            </Storyboard></BeginStoryboard></Trigger.EnterActions>
+                                            <Trigger.ExitActions><BeginStoryboard><Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"/>
+                                            </Storyboard></BeginStoryboard></Trigger.ExitActions>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
-                        <Button DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="8,4,8,8" Style="{StaticResource IconButton}" Width="32" Height="32"
-                                FontSize="13" Click="OnToggleVerticalCollapse" ToolTip="Collapse or expand the tab list">
+                        <Button DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="12,4,8,8" Style="{StaticResource IconButton}" Width="32" Height="32"
+                                FontSize="13" Click="OnToggleVerticalCollapse" ToolTip="Collapse or expand the tab list (collapsed: hover to peek)">
                             <TextBlock>
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">

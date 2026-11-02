@@ -73,4 +73,5 @@ public sealed class SessionTab
     public string? GroupName { get; set; }
     public string? GroupColor { get; set; }
     public bool GroupCollapsed { get; set; }
+    public bool IsPinned { get; set; }
 }

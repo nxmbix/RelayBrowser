@@ -29,7 +29,9 @@ public sealed partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(ShowTabFavicons));
             OnPropertyChanged(nameof(VerticalTabs));
             OnPropertyChanged(nameof(VerticalTabsCollapsed));
+            OnPropertyChanged(nameof(VerticalTabsNarrow));
             OnPropertyChanged(nameof(HorizontalTabs));
+            RebuildStrip();
         };
         Tabs.CollectionChanged += (_, _) => RebuildStrip();
     }
@@ -57,6 +59,35 @@ public sealed partial class MainViewModel : ObservableObject
     public bool VerticalTabs => _s.Settings.Current.VerticalTabs;
     public bool HorizontalTabs => !VerticalTabs;
     public bool VerticalTabsCollapsed => _s.Settings.Current.VerticalTabsCollapsed;
+    /// <summary>The vertical tab list shows icons only (collapsed and not expanded by hovering).</summary>
+    public bool VerticalTabsNarrow => VerticalTabsCollapsed && !SidebarHoverExpanded;
+    [ObservableProperty] private bool _sidebarHoverExpanded;
+    partial void OnSidebarHoverExpandedChanged(bool value) => OnPropertyChanged(nameof(VerticalTabsNarrow));
+    /// <summary>Corner radius of the page, in DIPs (the floating page card of the vertical layout).</summary>
+    [ObservableProperty] private double _pageCornerRadius;
+    /// <summary>Pinned tabs, shown as tiles at the top of the vertical tab list.</summary>
+    public ObservableCollection<BrowserTab> PinnedTabs { get; } = [];
+
+    public void TogglePin(BrowserTab tab)
+    {
+        var from = Tabs.IndexOf(tab);
+        if (from < 0) return;
+        var pinnedCount = Tabs.Count(t => t.IsPinned);
+        if (tab.IsPinned)
+        {
+            tab.IsPinned = false;
+            Tabs.Move(from, Math.Max(0, pinnedCount - 1));
+        }
+        else
+        {
+            tab.Group = null;
+            tab.IsPinned = true;
+            Tabs.Move(from, pinnedCount);
+        }
+        CleanupGroups();
+        RebuildStrip();
+        TabsChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>What the tab strip shows: group headers followed by their tabs (collapsed groups hide their tabs).</summary>
     public ObservableCollection<object> StripItems { get; } = [];
@@ -309,10 +340,22 @@ public sealed partial class MainViewModel : ObservableObject
 
     public void RebuildStrip()
     {
+        var vertical = VerticalTabs;
+        var pinned = Tabs.Where(t => t.IsPinned).ToList();
+        for (var i = PinnedTabs.Count - 1; i >= 0; i--)
+            if (!pinned.Contains(PinnedTabs[i])) PinnedTabs.RemoveAt(i);
+        for (var i = 0; i < pinned.Count; i++)
+        {
+            var cur = PinnedTabs.IndexOf(pinned[i]);
+            if (cur < 0) PinnedTabs.Insert(i, pinned[i]);
+            else if (cur != i) PinnedTabs.Move(cur, i);
+        }
+
         var desired = new List<object>();
         TabGroup? prev = null;
         foreach (var t in Tabs)
         {
+            if (vertical && t.IsPinned) { prev = null; continue; }
             if (t.Group is { } g && !ReferenceEquals(g, prev)) desired.Add(g);
             prev = t.Group;
             if (t.Group is { IsCollapsed: true }) continue;
@@ -501,6 +544,7 @@ public sealed partial class MainViewModel : ObservableObject
             GroupName = t.Group?.Name,
             GroupColor = t.Group?.ColorName,
             GroupCollapsed = t.Group?.IsCollapsed ?? false,
+            IsPinned = t.IsPinned,
         });
 
     /// <summary>Recreates groups when restoring a session (consecutive tabs with the same group belong together).</summary>
@@ -510,6 +554,7 @@ public sealed partial class MainViewModel : ObservableObject
         string? key = null;
         foreach (var (tab, saved) in tabs)
         {
+            tab.IsPinned = saved.IsPinned;
             if (saved.GroupName is null && saved.GroupColor is null) { current = null; key = null; continue; }
             var k = saved.GroupName + "|" + saved.GroupColor;
             if (current is null || k != key)

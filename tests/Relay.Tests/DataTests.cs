@@ -147,11 +147,13 @@ public sealed class DataTests : IDisposable
         var s = new SessionRepository(_db);
         await s.SaveAsync([
             new SessionTab { WindowIndex = 0, Position = 0, Url = "https://a/", Title = "A" },
-            new SessionTab { WindowIndex = 0, Position = 1, Url = "https://b/", Title = "B", IsActive = true },
+            new SessionTab { WindowIndex = 0, Position = 1, Url = "https://b/", Title = "B", IsActive = true, IsPinned = true },
         ]);
         var tabs = await s.LoadAsync();
         Assert.Equal(2, tabs.Count);
         Assert.True(tabs[1].IsActive);
+        Assert.False(tabs[0].IsPinned);
+        Assert.True(tabs[1].IsPinned);
     }
 }
 
@@ -174,10 +176,11 @@ public sealed class MigrationTests
             var db = new RelayDatabase(path);
             db.Migrate();
             var s = new SessionRepository(db);
-            await s.SaveAsync([new SessionTab { Url = "https://a/", GroupName = "Work", GroupColor = "Blue", GroupCollapsed = true }]);
+            await s.SaveAsync([new SessionTab { Url = "https://a/", GroupName = "Work", GroupColor = "Blue", GroupCollapsed = true, IsPinned = true }]);
             var t = (await s.LoadAsync()).Single();
             Assert.Equal("Work", t.GroupName);
             Assert.True(t.GroupCollapsed);
+            Assert.True(t.IsPinned);
         }
         finally
         {

@@ -238,11 +238,11 @@ public sealed class SessionRepository(RelayDatabase db)
         foreach (var t in tabs)
         {
             using var cmd = c.Cmd("""
-                INSERT INTO session_tabs (window_index, position, url, title, is_active, group_name, group_color, group_collapsed)
-                VALUES ($w, $p, $u, $t, $a, $gn, $gc, $gx)
+                INSERT INTO session_tabs (window_index, position, url, title, is_active, group_name, group_color, group_collapsed, is_pinned)
+                VALUES ($w, $p, $u, $t, $a, $gn, $gc, $gx, $pin)
                 """,
                 ("$w", t.WindowIndex), ("$p", t.Position), ("$u", t.Url), ("$t", t.Title), ("$a", t.IsActive ? 1 : 0),
-                ("$gn", t.GroupName), ("$gc", t.GroupColor), ("$gx", t.GroupCollapsed ? 1 : 0));
+                ("$gn", t.GroupName), ("$gc", t.GroupColor), ("$gx", t.GroupCollapsed ? 1 : 0), ("$pin", t.IsPinned ? 1 : 0));
             cmd.Transaction = tx;
             cmd.ExecuteNonQuery();
         }
@@ -253,13 +253,13 @@ public sealed class SessionRepository(RelayDatabase db)
     {
         using var c = db.Open();
         return c.Query("""
-            SELECT window_index, position, url, title, is_active, group_name, group_color, group_collapsed
+            SELECT window_index, position, url, title, is_active, group_name, group_color, group_collapsed, is_pinned
             FROM session_tabs ORDER BY window_index, position
             """,
             r => new SessionTab
             {
                 WindowIndex = r.GetInt32(0), Position = r.GetInt32(1), Url = r.GetString(2), Title = r.GetString(3), IsActive = r.GetInt64(4) != 0,
-                GroupName = r.GetNullableString(5), GroupColor = r.GetNullableString(6), GroupCollapsed = r.GetInt64(7) != 0,
+                GroupName = r.GetNullableString(5), GroupColor = r.GetNullableString(6), GroupCollapsed = r.GetInt64(7) != 0, IsPinned = r.GetInt64(8) != 0,
             });
     });
 }

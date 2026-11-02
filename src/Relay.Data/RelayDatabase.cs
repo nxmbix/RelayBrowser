@@ -8,7 +8,7 @@ namespace Relay.Data;
 /// </summary>
 public sealed class RelayDatabase
 {
-    private const int SchemaVersion = 2;
+    private const int SchemaVersion = 3;
     private readonly string _connectionString;
 
     public RelayDatabase(string path)
@@ -71,6 +71,8 @@ public sealed class RelayDatabase
                 ALTER TABLE session_tabs ADD COLUMN group_collapsed INTEGER NOT NULL DEFAULT 0;
                 """);
         }
+        // v3: pinned tabs.
+        if (version < 3) Exec(c, tx, "ALTER TABLE session_tabs ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0;");
         Exec(c, tx, $"PRAGMA user_version = {SchemaVersion};");
         tx.Commit();
     }
