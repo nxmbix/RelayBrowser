@@ -35,7 +35,7 @@ public sealed class TaskManagerWindow : Window
         SetResourceReference(FontFamilyProperty, "Font.UI");
         SetResourceReference(FontSizeProperty, "Font.Size");
         UseLayoutRounding = true;
-        TextOptions.SetTextFormattingMode(this, System.Windows.Media.TextFormattingMode.Display);
+        System.Windows.Media.TextOptions.SetTextFormattingMode(this, System.Windows.Media.TextFormattingMode.Display);
         if (App.Current.WindowManager?.LastActive is { IsVisible: true } owner)
         {
             WindowStartupLocation = WindowStartupLocation.Manual;
