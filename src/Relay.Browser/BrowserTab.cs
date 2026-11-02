@@ -84,6 +84,8 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         Url.StartsWith("file:", StringComparison.OrdinalIgnoreCase) ? SecurityState.File : SecurityState.None;
 
     public event EventHandler<CoreWebView2NewWindowRequestedEventArgs>? NewWindowRequested;
+    /// <summary>The user submitted a sign-in form on a top-level page (origin is taken from the browser, not the page).</summary>
+    public event EventHandler<Relay.Core.Passwords.ImportedLogin>? LoginSubmitted;
     public event EventHandler? CloseRequested;
     public event EventHandler<bool>? FullScreenChanged;
 
@@ -121,6 +123,11 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         IsDiscarded = false;
         IsSleeping = false;
         if (_restoreZoom is { } z) { wv.ZoomFactor = z; _restoreZoom = null; }
+        if (!IsPrivate && _s.Settings.Current.OfferToSavePasswords)
+        {
+            try { await wv.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(LoginCapture.Script); }
+            catch (Exception ex) { _s.Paths.LogError("Login capture", ex); }
+        }
         await UpdateYouTubeScriptAsync(_s.Blocker.Enabled);
         if (_disposed || !ReferenceEquals(WebView, wv)) return;
         UpdateLifecycle();
@@ -577,6 +584,21 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         string json;
         try { json = e.WebMessageAsJson; } catch { return; }
         if (json.Length > 64 * 1024) return;
+        // Sign-in forms (LoginCapture): only the top-level page, never private tabs; the origin comes from WebView2.
+        if (!IsPrivate && json.Contains("\"relay-login\"", StringComparison.Ordinal) && Relay.Core.Passwords.PasswordOrigin.From(e.Source) is { } loginOrigin)
+        {
+            try
+            {
+                var m = System.Text.Json.Nodes.JsonNode.Parse(json);
+                if (m?["type"]?.GetValue<string>() == "relay-login" && m["p"]?.GetValue<string>() is { Length: > 0 and <= 4096 } pw)
+                {
+                    var user = (m["u"]?.GetValue<string>() ?? string.Empty).Trim();
+                    if (user.Length <= 1024) LoginSubmitted?.Invoke(this, new(loginOrigin, user, pw));
+                }
+            }
+            catch { }
+            return;
+        }
         // The reader view may only ask for its article or to close itself.
         if (IsReaderPage && UrlDisplay.IsReader(e.Source)) { OnReaderMessage(json); return; }
         // Only RELAY's own new tab page, as the top-level document, may talk to the browser.

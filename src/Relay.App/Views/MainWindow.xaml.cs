@@ -52,6 +52,10 @@ public partial class MainWindow : Window
         ViewModel.CloseWindowRequested += (_, _) => Dispatcher.BeginInvoke(Close);
         ViewModel.FocusAddressRequested += (_, _) => Dispatcher.BeginInvoke(FocusAddress, DispatcherPriority.Input);
         ViewModel.NewWindowRequested += (_, priv) => App.Current.WindowManager?.Open(priv);
+        ViewModel.SaveLoginOffered += (_, login) => ShowToast("\uE8D7", "Save password?",
+            (login.Username.Length > 0 ? login.Username + " on " : string.Empty) + UrlDisplay.Host(login.Origin),
+            ("Save", () => _ = _s.Passwords.ImportAsync([login])),
+            ("Never ask", () => _s.Settings.Update(s => s.OfferToSavePasswords = false)));
         ViewModel.FullScreenRequested += (_, full) => SetFullScreen(full);
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         ViewModel.SplitChanged += (_, _) => ApplySplitLayout();

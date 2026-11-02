@@ -74,6 +74,21 @@ public sealed partial class MainViewModel : ObservableObject
     public ObservableCollection<SavedLogin> Logins { get; } = [];
     [ObservableProperty] private bool _hasSavedLogins;
 
+    /// <summary>Asks the window to offer "Save password?" for a submitted login that isn't saved yet.</summary>
+    public event EventHandler<Relay.Core.Passwords.ImportedLogin>? SaveLoginOffered;
+
+    private async Task OfferToSaveLoginAsync(Relay.Core.Passwords.ImportedLogin login)
+    {
+        if (IsPrivate) return;
+        try
+        {
+            foreach (var saved in await _s.Passwords.ForOriginAsync(login.Origin))
+                if (saved.Username == login.Username && await _s.Passwords.GetPasswordAsync(saved.Id) == login.Password) return;
+        }
+        catch { return; }
+        SaveLoginOffered?.Invoke(this, login);
+    }
+
     public async Task RefreshLoginsAsync()
     {
         var tab = ActiveTab;
@@ -129,6 +144,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         var tab = new BrowserTab(_s, IsPrivate, url, popupTarget);
         tab.NewWindowRequested += OnTabNewWindowRequested;
+        tab.LoginSubmitted += async (_, login) => await OfferToSaveLoginAsync(login);
         tab.CloseRequested += (_, _) => CloseTab(tab);
         tab.FullScreenChanged += (_, full) => { if (ReferenceEquals(tab, ActiveTab)) FullScreenRequested?.Invoke(this, full); };
         tab.PropertyChanged += (_, e) =>

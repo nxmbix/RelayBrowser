@@ -49,6 +49,8 @@ public sealed class RelaySettings
 
     // Privacy
     public bool PasswordAutosave { get; set; }
+    /// <summary>Offer to save passwords typed into sign-in forms in RELAY's own encrypted store.</summary>
+    public bool OfferToSavePasswords { get; set; } = true;
     public bool GeneralAutofill { get; set; } = true;
     public bool ClearDataOnExit { get; set; }
     public bool PrivateSearchSuggestions { get; set; }

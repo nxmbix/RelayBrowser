@@ -133,6 +133,39 @@ public partial class SettingsWindow : Window
         await UpdatePasswordCountAsync();
     }
 
+    /// <summary>Saved passwords: pick a login, then copy its password or delete it.</summary>
+    private async void OnViewPasswords(object sender, RoutedEventArgs e)
+    {
+        while (true)
+        {
+            var all = await _s.Passwords.AllAsync();
+            if (all.Count == 0) { RelayDialog.Info(this, "No saved passwords", "Import a CSV, or save one when RELAY offers after you sign in.", Icons.Info); return; }
+            var d = new RelayDialog(this, "Saved passwords", $"{all.Count} logins, encrypted for your Windows account.", "\uE8D7")
+                .AddChoice("Login", all.Select(l => ((object)l.Id, $"{Relay.Core.Navigation.UrlDisplay.Host(l.Origin)} · {(l.Username.Length > 0 ? l.Username : "(no username)")}")), all[0].Id)
+                .AddButton("delete", "Delete", danger: true)
+                .AddButton("close", "Close", isCancel: true)
+                .AddButton("copy", "Copy password", primary: true);
+            var r = d.Ask();
+            if (d.Choice is not long id || r is null or "close") break;
+            if (r == "copy")
+            {
+                var pw = await _s.Passwords.GetPasswordAsync(id);
+                if (pw is null) RelayDialog.Info(this, "Couldn't read that password", "It was saved by another Windows account or PC.", Icons.Warning);
+                else
+                {
+                    try { Clipboard.SetText(pw); } catch { }
+                    RelayDialog.Info(this, "Password copied", "It's on the clipboard. Paste it where you need it.", Icons.Check);
+                }
+                break;
+            }
+            if (r == "delete" && RelayDialog.Confirm(this, "Delete this login?", "It will be removed from RELAY.", "Delete", danger: true))
+            {
+                await _s.Passwords.DeleteAsync(id);
+                await UpdatePasswordCountAsync();
+            }
+        }
+    }
+
     private async void OnRemoveRelayPasswords(object sender, RoutedEventArgs e)
     {
         if (!RelayDialog.Confirm(this, "Remove all RELAY passwords?", "Every password imported into RELAY will be deleted.", "Remove", danger: true)) return;
