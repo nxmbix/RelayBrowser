@@ -32,6 +32,8 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         _title = _pendingUrl is null || UrlDisplay.IsNewTab(_pendingUrl) ? "New tab" : UrlDisplay.Host(_pendingUrl);
         _isLoading = !UrlDisplay.IsNewTab(_pendingUrl);
         _s.NewTab.StateChanged += OnNewTabStateChanged;
+        _s.PasswordsPage.StateChanged += OnPasswordsStateChanged;
+        if (_s.SettingsPage is { } settingsPage) settingsPage.StateChanged += OnSettingsStateChanged;
         _ = Task.Delay(400).ContinueWith(_ => IsNew = false, TaskScheduler.FromCurrentSynchronizationContext());
         if (_pendingUrl is not null && !UrlDisplay.IsNewTab(_pendingUrl)) _ = LoadCachedFaviconAsync(_pendingUrl);
     }
@@ -41,7 +43,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
 
     [ObservableProperty] private WebView2? _webView;
     [ObservableProperty] private string _title;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(AddressText), nameof(IsNewTabPage), nameof(Security), nameof(Host), nameof(IsReaderPage))] private string _url;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(AddressText), nameof(IsNewTabPage), nameof(Security), nameof(Host), nameof(IsReaderPage), nameof(IsPasswordsPage), nameof(IsSettingsPage))] private string _url;
     [ObservableProperty] private ImageSource? _favicon;
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _canGoBack;
@@ -55,18 +57,23 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
     /// <summary>Shown in the second pane of split view.</summary>
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowWebView), nameof(ShowCrashPanel), nameof(IsVisibleTab))] private bool _isSplitVisible;
     [ObservableProperty] private bool _isSleeping;
+    /// <summary>The page was unloaded to free memory; it reloads from <see cref="Url"/> when the tab is shown.</summary>
+    [ObservableProperty] private bool _isDiscarded;
     [ObservableProperty] private TabGroup? _group;
     /// <summary>0 = not split, 1 = left pane, 2 = right pane.</summary>
     [ObservableProperty] private int _splitSide;
     [ObservableProperty] private ImageSource? _thumbnail;
     /// <summary>True for a moment after the tab is created (drives the entrance animation).</summary>
     [ObservableProperty] private bool _isNew = true;
+    [ObservableProperty] private bool _isPinned;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowWebView))] private bool _isObscured;
     [ObservableProperty] private int _blockedCount;
     [ObservableProperty] private bool _isBlockingActive;
 
     public string AddressText => IsReaderPage && ReaderOriginalUrl is { } original ? UrlDisplay.ForAddressBar(original) : UrlDisplay.ForAddressBar(Url);
     public bool IsNewTabPage => UrlDisplay.IsNewTab(Url);
+    public bool IsPasswordsPage => UrlDisplay.IsPasswords(Url);
+    public bool IsSettingsPage => UrlDisplay.IsSettings(Url);
     public string Host => UrlDisplay.Host(Url);
     public bool IsVisibleTab => IsActive || IsSplitVisible;
     public bool ShowWebView => IsVisibleTab && !IsCrashed && !IsObscured;
@@ -81,6 +88,8 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         Url.StartsWith("file:", StringComparison.OrdinalIgnoreCase) ? SecurityState.File : SecurityState.None;
 
     public event EventHandler<CoreWebView2NewWindowRequestedEventArgs>? NewWindowRequested;
+    /// <summary>The user submitted a sign-in form on a top-level page (origin is taken from the browser, not the page).</summary>
+    public event EventHandler<Relay.Core.Passwords.ImportedLogin>? LoginSubmitted;
     public event EventHandler? CloseRequested;
     public event EventHandler<bool>? FullScreenChanged;
 
@@ -115,6 +124,16 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
 
         Configure(wv);
         wv.ZoomFactorChanged += (_, _) => OnPropertyChanged(nameof(Zoom));
+        IsDiscarded = false;
+        IsSleeping = false;
+        if (_restoreZoom is { } z) { wv.ZoomFactor = z; _restoreZoom = null; }
+        if (!IsPrivate && _s.Settings.Current.OfferToSavePasswords)
+        {
+            try { await wv.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(LoginCapture.Script); }
+            catch (Exception ex) { _s.Paths.LogError("Login capture", ex); }
+        }
+        await UpdateYouTubeScriptAsync(_s.Blocker.Enabled);
+        if (_disposed || !ReferenceEquals(WebView, wv)) return;
         UpdateLifecycle();
         if (_pendingUrl is not null)
         {
@@ -144,6 +163,8 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
             core.SetVirtualHostNameToFolderMapping(UrlDisplay.NewTabHost, BrowserServices.NewTabFolder, CoreWebView2HostResourceAccessKind.DenyCors);
             core.SetVirtualHostNameToFolderMapping(UrlDisplay.UserAssetsHost, _s.Paths.Backgrounds, CoreWebView2HostResourceAccessKind.DenyCors);
             core.SetVirtualHostNameToFolderMapping(UrlDisplay.ReaderHost, BrowserServices.NewTabFolder, CoreWebView2HostResourceAccessKind.DenyCors);
+            core.SetVirtualHostNameToFolderMapping(UrlDisplay.PasswordsHost, BrowserServices.NewTabFolder, CoreWebView2HostResourceAccessKind.DenyCors);
+            core.SetVirtualHostNameToFolderMapping(UrlDisplay.SettingsHost, BrowserServices.NewTabFolder, CoreWebView2HostResourceAccessKind.DenyCors);
         }
         catch (Exception ex) { _s.Paths.LogError("Mapping new tab page", ex); }
 
@@ -188,6 +209,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
     }
 
     private bool _zoomApplied;
+    private double? _restoreZoom;
 
     // ---- Sleeping tabs & thumbnails ------------------------------------------------------
 
@@ -208,11 +230,23 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
             if (IsVisibleTab)
             {
                 _sleepTimer?.Stop();
+                _discardTimer?.Stop();
                 if (IsSleeping) { core.Resume(); IsSleeping = false; }
                 core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Normal;
                 return;
             }
             core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
+            var discardMinutes = _s.Settings.Current.DiscardTabsAfterMinutes;
+            if (discardMinutes > 0)
+            {
+                _discardTimer ??= new System.Windows.Threading.DispatcherTimer();
+                _discardTimer.Stop();
+                _discardTimer.Interval = TimeSpan.FromMinutes(discardMinutes);
+                _discardTimer.Tick -= OnDiscardTimer;
+                _discardTimer.Tick += OnDiscardTimer;
+                _discardTimer.Start();
+            }
+            else _discardTimer?.Stop();
             var minutes = _s.Settings.Current.SleepTabsAfterMinutes;
             if (minutes <= 0) return;
             _sleepTimer ??= new System.Windows.Threading.DispatcherTimer();
@@ -240,6 +274,52 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         if (Core is not { } core || IsVisibleTab || IsSleeping) return;
         core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
         try { IsSleeping = await core.TrySuspendAsync(); } catch { }
+    }
+
+    // ---- Memory saver: unloading tabs ------------------------------------------------------
+
+    private System.Windows.Threading.DispatcherTimer? _discardTimer;
+
+    /// <summary>
+    /// Whether the page can be unloaded without losing anything the user would miss: a hidden, idle,
+    /// normal-window web page that isn't playing audio and while no download is running.
+    /// </summary>
+    public bool CanDiscard =>
+        Core is not null && !IsVisibleTab && !IsPrivate && !IsPopupTarget && !IsNewTabPage && !IsCrashed
+        && !IsPlayingAudio && !IsLoading && _s.Downloads.ActiveCount == 0
+        && (IsReaderPage ? _readerOriginalUrl is not null : Url.StartsWith("http", StringComparison.OrdinalIgnoreCase));
+
+    private void OnDiscardTimer(object? sender, EventArgs e)
+    {
+        _discardTimer?.Stop();
+        if (Core is null || IsVisibleTab) return;
+        if (!Discard()) _discardTimer?.Start();
+    }
+
+    /// <summary>
+    /// Closes the tab's page to give all of its memory back. Title, icon and preview stay in the tab strip;
+    /// the page loads again from its address when the tab is opened.
+    /// </summary>
+    public bool Discard()
+    {
+        if (!CanDiscard) return false;
+        var url = IsReaderPage && _readerOriginalUrl is not null ? _readerOriginalUrl : Url;
+        _sleepTimer?.Stop();
+        _discardTimer?.Stop();
+        DisposeWebView();
+        _creating = null;
+        _filterInstalled = false;
+        _youTubeScriptId = null;
+        _restoreZoom = Zoom;
+        _pendingUrl = url;
+        Url = url;
+        CanGoBack = false;
+        CanGoForward = false;
+        IsPlayingAudio = false;
+        BlockedCount = 0;
+        IsSleeping = true;
+        IsDiscarded = true;
+        return true;
     }
 
     /// <summary>Takes a small screenshot of the page for tab hover previews.</summary>
@@ -289,6 +369,38 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         }
         catch (Exception ex) { _s.Paths.LogError("Blocker filter", ex); }
         IsBlockingActive = _s.Blocker.IsActiveFor(Url);
+        _ = UpdateYouTubeScriptAsync(want);
+    }
+
+    private string? _youTubeScriptId;
+    private bool _youTubeScriptWanted;
+    private bool _youTubeScriptBusy;
+
+    /// <summary>
+    /// Adds or removes the YouTube ad remover. It runs before YouTube's own scripts in every new document,
+    /// so it's registered once per tab and only takes effect on YouTube pages where blocking is on.
+    /// </summary>
+    private async Task UpdateYouTubeScriptAsync(bool want)
+    {
+        _youTubeScriptWanted = want;
+        if (Core is not { } core || _youTubeScriptBusy) return;
+        _youTubeScriptBusy = true;
+        try
+        {
+            // Loop so a change requested while the engine was busy still wins.
+            while (ReferenceEquals(Core, core) && _youTubeScriptWanted != (_youTubeScriptId is not null))
+            {
+                if (_youTubeScriptWanted)
+                    _youTubeScriptId = await core.AddScriptToExecuteOnDocumentCreatedAsync(YouTubeAdBlocker.Script);
+                else
+                {
+                    core.RemoveScriptToExecuteOnDocumentCreated(_youTubeScriptId!);
+                    _youTubeScriptId = null;
+                }
+            }
+        }
+        catch (Exception ex) { _s.Paths.LogError("YouTube ad blocker", ex); }
+        finally { _youTubeScriptBusy = false; }
     }
 
     private static Relay.Core.Blocking.RequestType MapContext(CoreWebView2WebResourceContext c) => c switch
@@ -345,6 +457,9 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         _navigatingUri = e.Uri;
         _pageHost = Uri.TryCreate(e.Uri, UriKind.Absolute, out var nu) ? nu.Host : string.Empty;
         IsBlockingActive = _s.Blocker.IsActiveFor(e.Uri);
+        // The YouTube ad remover follows the per-site switch too.
+        if (YouTubeAdBlocker.IsYouTubeHost(_pageHost)) _ = UpdateYouTubeScriptAsync(IsBlockingActive);
+        else if (_s.Blocker.Enabled && !_youTubeScriptWanted) _ = UpdateYouTubeScriptAsync(true);
         if (!e.IsRedirected) BlockedCount = 0;
         IsLoading = true;
         if (IsCrashed) IsCrashed = false;
@@ -475,8 +590,37 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         string json;
         try { json = e.WebMessageAsJson; } catch { return; }
         if (json.Length > 64 * 1024) return;
+        // Sign-in forms (LoginCapture): only the top-level page, never private tabs; the origin comes from WebView2.
+        if (!IsPrivate && !UrlDisplay.IsInternal(e.Source) && json.Contains("\"relay-login\"", StringComparison.Ordinal) && Relay.Core.Passwords.PasswordOrigin.From(e.Source) is { } loginOrigin)
+        {
+            try
+            {
+                var m = System.Text.Json.Nodes.JsonNode.Parse(json);
+                if (m?["type"]?.GetValue<string>() == "relay-login" && m["p"]?.GetValue<string>() is { Length: > 0 and <= 4096 } pw)
+                {
+                    var user = (m["u"]?.GetValue<string>() ?? string.Empty).Trim();
+                    if (user.Length <= 1024) LoginSubmitted?.Invoke(this, new(loginOrigin, user, pw));
+                }
+            }
+            catch { }
+            return;
+        }
         // The reader view may only ask for its article or to close itself.
         if (IsReaderPage && UrlDisplay.IsReader(e.Source)) { OnReaderMessage(json); return; }
+        // relay://passwords, as the top-level document, may manage saved logins.
+        if (IsPasswordsPage && PasswordsPageService.IsTrustedSource(e.Source))
+        {
+            try { await _s.PasswordsPage.HandleMessageAsync(this, json); }
+            catch (Exception ex) { _s.Paths.LogError("Passwords page message", ex); }
+            return;
+        }
+        // relay://settings, as the top-level document, may change settings.
+        if (IsSettingsPage && UrlDisplay.IsSettings(e.Source) && _s.SettingsPage is { } settings)
+        {
+            try { await settings.HandleMessageAsync(this, json); }
+            catch (Exception ex) { _s.Paths.LogError("Settings page message", ex); }
+            return;
+        }
         // Only RELAY's own new tab page, as the top-level document, may talk to the browser.
         if (!NewTabService.IsTrustedSource(e.Source) || !IsNewTabPage) return;
         try { await _s.NewTab.HandleMessageAsync(this, json); }
@@ -497,6 +641,42 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
             if (Core is not null && IsNewTabPage) Core.PostWebMessageAsJson(json);
         }
         catch (Exception ex) { _s.Paths.LogError("New tab state", ex); }
+    }
+
+    private async void OnPasswordsStateChanged(object? sender, EventArgs e)
+    {
+        if (IsPasswordsPage) await PushPasswordsStateAsync();
+    }
+
+    public async Task PushPasswordsStateAsync()
+    {
+        if (Core is null || !IsPasswordsPage) return;
+        try { PostPasswordsMessage(await _s.PasswordsPage.BuildStateJsonAsync(IsPrivate)); }
+        catch (Exception ex) { _s.Paths.LogError("Passwords page state", ex); }
+    }
+
+    /// <summary>Sends JSON to relay://passwords, and only while that page is the one showing.</summary>
+    public void PostPasswordsMessage(string json)
+    {
+        if (Core is { } core && IsPasswordsPage && UrlDisplay.IsPasswords(core.Source)) core.PostWebMessageAsJson(json);
+    }
+
+    private async void OnSettingsStateChanged(object? sender, EventArgs e)
+    {
+        if (IsSettingsPage) await PushSettingsStateAsync();
+    }
+
+    public async Task PushSettingsStateAsync()
+    {
+        if (Core is null || !IsSettingsPage || _s.SettingsPage is not { } settings) return;
+        try { PostSettingsMessage(await settings.BuildStateJsonAsync(this)); }
+        catch (Exception ex) { _s.Paths.LogError("Settings page state", ex); }
+    }
+
+    /// <summary>Sends JSON to relay://settings, and only while that page is the one showing.</summary>
+    public void PostSettingsMessage(string json)
+    {
+        if (Core is { } core && IsSettingsPage && UrlDisplay.IsSettings(core.Source)) core.PostWebMessageAsJson(json);
     }
 
     public async Task PostNewTabMessageAsync(string json)
@@ -589,6 +769,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         DisposeWebView();
         _creating = null;
         _filterInstalled = false;
+        _youTubeScriptId = null;
         _pendingUrl = url;
         IsCrashed = false;
         await EnsureCreatedAsync();
@@ -621,7 +802,10 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         if (_disposed) return;
         _disposed = true;
         _sleepTimer?.Stop();
+        _discardTimer?.Stop();
         _s.NewTab.StateChanged -= OnNewTabStateChanged;
+        _s.PasswordsPage.StateChanged -= OnPasswordsStateChanged;
+        if (_s.SettingsPage is { } settingsPage) settingsPage.StateChanged -= OnSettingsStateChanged;
         DisposeWebView();
     }
 }

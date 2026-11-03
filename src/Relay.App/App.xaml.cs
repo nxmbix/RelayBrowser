@@ -16,7 +16,7 @@ namespace Relay.App;
 public partial class App : Application
 {
     private SingleInstance? _single;
-    private SettingsWindow? _settingsWindow;
+    private TaskManagerWindow? _taskManager;
 
     public static new App Current => (App)Application.Current;
 
@@ -42,11 +42,12 @@ public partial class App : Application
 
     private async Task StartAsync(StartupEventArgs e)
     {
+        var args = CommandLineArgs.Normalize(e.Args, Environment.CommandLine);
 
         // Settings → Apps → RELAY → Uninstall runs "Relay.exe --uninstall".
-        if (e.Args.Any(a => a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase)))
+        if (args.Any(a => a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase)))
         {
-            if (e.Args.Any(a => a.Equals("--quiet", StringComparison.OrdinalIgnoreCase)))
+            if (args.Any(a => a.Equals("--quiet", StringComparison.OrdinalIgnoreCase)))
                 await UninstallWindow.UninstallAsync(removeData: false);
             else
                 new UninstallWindow().ShowDialog();
@@ -59,12 +60,18 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (_, ex) => Paths.LogError("Unhandled", (ex.ExceptionObject as Exception) ?? new Exception("Unknown error"));
         TaskScheduler.UnobservedTaskException += (_, ex) => { Paths.LogError("Unobserved task", ex.Exception); ex.SetObserved(); };
 
+        // One app identity for the process and its shortcuts (set before any window is shown).
+        var appId = Relay.Installer.AppIdentity.For(Paths.IsPortable);
+        Relay.Installer.AppIdentity.ApplyToProcess(appId);
+
         // One process per data folder; later launches open a window in the running instance.
         _single = new SingleInstance(Paths.Root);
         if (!_single.IsFirst)
         {
-            if (_single.Forward(e.Args)) { Shutdown(); return; }
+            if (_single.Forward(args)) { Shutdown(); return; }
         }
+        if (Environment.ProcessPath is { } exePath)
+            _ = Task.Run(() => Relay.Installer.AppIdentity.StampShortcuts(exePath, appId));
 
         // The Evergreen WebView2 Runtime ships with Windows 10/11. RELAY never installs it silently.
         var runtime = WebViewRuntime.GetInstalledVersion();
@@ -98,7 +105,9 @@ public partial class App : Application
         Theme = new ThemeManager(settings, Services);
         Theme.Apply();
         settings.Changed += (_, _) => Theme.Apply();
+        Services.SettingsPage = new SettingsPageService(Services, Theme); // after the theme, so the page gets the new colours
 
+        var firstRun = !settings.Current.SearchEngineChosen;
         // First run: let the user pick a search engine. Nothing is preselected and the order is shuffled.
         if (!settings.Current.SearchEngineChosen)
         {
@@ -120,7 +129,7 @@ public partial class App : Application
 
         try
         {
-            await OpenStartupWindowsAsync(e.Args);
+            await OpenStartupWindowsAsync(args);
         }
         catch (Exception ex)
         {
@@ -134,6 +143,15 @@ public partial class App : Application
             return;
         }
         _ = Services.Downloads.LoadAsync();
+
+        // First run: offer once to copy bookmarks and history from another browser on this PC.
+        if (!settings.Current.ImportOffered)
+        {
+            settings.Update(s => s.ImportOffered = true);
+            var owner = WindowManager.All.FirstOrDefault(w => w.IsVisible);
+            if (owner is not null && firstRun && BrowserImport.Detect().Count > 0)
+                _ = Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() => _ = ImportDialog.ShowAsync(owner, Services, firstRun: true)));
+        }
     }
 
     private void FailStartup(string message)
@@ -198,23 +216,51 @@ public partial class App : Application
         return list;
     }
 
+    /// <summary>Shows relay://settings (at a section), reusing a tab that already has it open.</summary>
     public void ShowSettings(string? section = null)
     {
-        if (_settingsWindow is { IsLoaded: true })
+        var url = UrlDisplay.SettingsSectionUrl(section);
+        var w = WindowManager?.LastActive ?? WindowManager?.Open(false);
+        if (w is null) return;
+        var vm = w.ViewModel;
+        if (vm.Tabs.FirstOrDefault(t => t.IsSettingsPage) is { } existing)
         {
-            _settingsWindow.Navigate(section);
-            if (_settingsWindow.WindowState == WindowState.Minimized) _settingsWindow.WindowState = WindowState.Normal;
-            _settingsWindow.Activate();
+            vm.ActiveTab = existing;
+            if (section is not null) existing.Navigate(url);
+        }
+        else vm.OpenInNewTab(url);
+        if (w.WindowState == WindowState.Minimized) w.WindowState = WindowState.Normal;
+        w.Activate();
+    }
+
+    /// <summary>Shows relay://passwords, reusing a tab that already has it open.</summary>
+    public void ShowPasswords()
+    {
+        var w = WindowManager?.LastActive ?? WindowManager?.Open(false);
+        if (w is null) return;
+        var vm = w.ViewModel;
+        if (vm.Tabs.FirstOrDefault(t => t.IsPasswordsPage) is { } existing) vm.ActiveTab = existing;
+        else vm.OpenInNewTab(UrlDisplay.PasswordsUrl);
+        if (w.WindowState == WindowState.Minimized) w.WindowState = WindowState.Normal;
+        w.Activate();
+    }
+
+    public void ShowTaskManager()
+    {
+        if (_taskManager is { IsLoaded: true })
+        {
+            if (_taskManager.WindowState == WindowState.Minimized) _taskManager.WindowState = WindowState.Normal;
+            _taskManager.Activate();
             return;
         }
-        _settingsWindow = new SettingsWindow(Services, section);
-        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
-        _settingsWindow.Show();
+        _taskManager = new TaskManagerWindow(Services);
+        _taskManager.Closed += (_, _) => _taskManager = null;
+        _taskManager.Show();
     }
 
     public void CloseAuxiliaryWindows()
     {
-        _settingsWindow?.Close();
+        _taskManager?.Close();
     }
 
     public static void OpenExternal(string url)

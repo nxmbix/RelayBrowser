@@ -69,14 +69,16 @@ public static class Installation
             app.SetValue("StartMenuShortcut", startMenu ? StartMenuShortcut : string.Empty);
             app.SetValue("DesktopShortcut", desktop ? DesktopShortcut : string.Empty);
         }
+        // Listed in Settings → Default apps; becoming the default is the user's choice there.
+        DefaultBrowser.Register(exe);
     }
 
     public static void CreateShortcuts(string installDir, bool startMenu, bool desktop)
     {
         var exe = Path.Combine(installDir, "Relay.exe");
-        if (startMenu) ShellLink.Create(StartMenuShortcut, exe, description: "Browse the web with RELAY");
+        if (startMenu) ShellLink.Create(StartMenuShortcut, exe, description: "Browse the web with RELAY", appUserModelId: AppIdentity.InstalledAppId);
         else TryDelete(StartMenuShortcut);
-        if (desktop) ShellLink.Create(DesktopShortcut, exe, description: "Browse the web with RELAY");
+        if (desktop) ShellLink.Create(DesktopShortcut, exe, description: "Browse the web with RELAY", appUserModelId: AppIdentity.InstalledAppId);
         else TryDelete(DesktopShortcut);
     }
 
@@ -145,6 +147,7 @@ public static class Installation
         TryDelete(string.IsNullOrEmpty(startMenu) ? StartMenuShortcut : startMenu);
         TryDelete(string.IsNullOrEmpty(desktop) ? DesktopShortcut : desktop);
 
+        DefaultBrowser.Unregister();
         try { Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, throwOnMissingSubKey: false); } catch { }
         try { Registry.CurrentUser.DeleteSubKeyTree(AppKey, throwOnMissingSubKey: false); } catch { }
 

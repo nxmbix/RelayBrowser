@@ -133,6 +133,7 @@
                             <Border Height="1" Background="{StaticResource Line}" Margin="0,0,0,10"/>
                             <CheckBox x:Name="StartMenuCheck" Style="{StaticResource Toggle}" Content="Add to the Start menu" IsChecked="True"/>
                             <CheckBox x:Name="DesktopCheck" Style="{StaticResource Toggle}" Content="Add a desktop shortcut" IsChecked="True"/>
+                            <CheckBox x:Name="DefaultBrowserCheck" Style="{StaticResource Toggle}" Content="Make RELAY my default browser" IsChecked="True"/>
                         </StackPanel>
                     </DockPanel>
 
@@ -185,6 +186,8 @@
                             <TextBlock x:Name="DoneTitle" Text="RELAY is ready" FontFamily="{StaticResource Display}" FontSize="28" FontWeight="SemiBold" Margin="0,20,0,8"/>
                             <TextBlock x:Name="DoneText" TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="14" LineHeight="21"
                                        Text="Find it in the Start menu or on your desktop. To remove it later, use Settings → Apps."/>
+                            <Button x:Name="DefaultBrowserButton" Style="{StaticResource LinkButton}" Content="Make RELAY your default browser"
+                                    Margin="0,10,0,0" HorizontalAlignment="Left" Click="OnMakeDefaultBrowser"/>
                             <Border x:Name="RuntimeNote" Background="#FFF6E5" CornerRadius="10" Padding="14,10" Margin="0,18,0,0" Visibility="Collapsed">
                                 <StackPanel>
                                     <TextBlock TextWrapping="Wrap" Foreground="#7A4B00" FontSize="13"

@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using Relay.App.Controls;
@@ -51,14 +52,20 @@ public partial class MainWindow : Window
         ViewModel.CloseWindowRequested += (_, _) => Dispatcher.BeginInvoke(Close);
         ViewModel.FocusAddressRequested += (_, _) => Dispatcher.BeginInvoke(FocusAddress, DispatcherPriority.Input);
         ViewModel.NewWindowRequested += (_, priv) => App.Current.WindowManager?.Open(priv);
+        ViewModel.SaveLoginOffered += (_, login) => ShowToast("\uE8D7", "Save password?",
+            (login.Username.Length > 0 ? login.Username + " on " : string.Empty) + UrlDisplay.Host(login.Origin),
+            ("Save", () => _ = _s.Passwords.ImportAsync([login])),
+            ("Never ask", () => _s.Settings.Update(s => s.OfferToSavePasswords = false)));
         ViewModel.FullScreenRequested += (_, full) => SetFullScreen(full);
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         ViewModel.SplitChanged += (_, _) => ApplySplitLayout();
         ViewModel.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(MainViewModel.VerticalTabsCollapsed)) UpdateVerticalWidth();
+            if (e.PropertyName == nameof(MainViewModel.VerticalTabsNarrow)) UpdateVerticalWidth();
+            if (e.PropertyName == nameof(MainViewModel.VerticalTabs)) ApplyZenLayout();
         };
-        Loaded += (_, _) => UpdateVerticalWidth();
+        Loaded += (_, _) => { UpdateVerticalWidth(animate: false); ApplyZenLayout(); };
+        Toolbar.SizeChanged += (_, _) => ApplyDensity();
 
         StripHost.SizeChanged += (_, _) => TabsList.MaxWidth = Math.Max(0, StripHost.ActualWidth - 40 - 56);
         StateChanged += (_, _) => UpdateMaximizedLayout();
@@ -92,6 +99,8 @@ public partial class MainWindow : Window
     private void ApplyDensity()
     {
         var h = TryFindResource("Strip.Height") is double d ? d : 44;
+        // Vertical tabs: the tab strip is hidden and the toolbar becomes the title bar.
+        if (ViewModel.VerticalTabs) h = Toolbar.ActualHeight > 0 ? Toolbar.ActualHeight : 48;
         Chrome.CaptionHeight = _isFullScreen ? 0 : h;
     }
 
@@ -101,14 +110,14 @@ public partial class MainWindow : Window
         {
             // A maximized custom-chrome window overhangs the screen by the resize border.
             RootBorder.Padding = SystemParameters.WindowResizeBorderThickness;
-            MaxButton.Content = Icons.Restore;
-            MaxButton.ToolTip = "Restore";
+            MaxButton.Content = MaxButton2.Content = Icons.Restore;
+            MaxButton.ToolTip = MaxButton2.ToolTip = "Restore";
         }
         else
         {
             RootBorder.Padding = new Thickness(0);
-            MaxButton.Content = Icons.Maximize;
-            MaxButton.ToolTip = "Maximize";
+            MaxButton.Content = MaxButton2.Content = Icons.Maximize;
+            MaxButton.ToolTip = MaxButton2.ToolTip = "Maximize";
         }
     }
 
@@ -197,7 +206,7 @@ public partial class MainWindow : Window
         Toolbar.Visibility = chromeVisibility;
         Rail.Visibility = full ? Visibility.Collapsed : (ViewModel.SidebarEnabled ? Visibility.Visible : Visibility.Collapsed);
         SidePanel.Visibility = full || !ViewModel.Sidebar.IsOpen ? Visibility.Collapsed : Visibility.Visible;
-        ApplyDensity();
+        ApplyZenLayout();
 
         if (full)
         {
@@ -488,6 +497,7 @@ public partial class MainWindow : Window
                 default: handled = false; break;
             }
         }
+        else if (m == ModifierKeys.Shift && key == Key.Escape) App.Current.ShowTaskManager();
         else handled = false;
 
         if (handled) e.Handled = true;
@@ -593,7 +603,7 @@ public partial class MainWindow : Window
         if (TabsList.ItemContainerGenerator.ContainerFromItem(tab) is not UIElement container) return;
         PreviewTitle.Text = tab.Title;
         PreviewHost.Text = tab.IsNewTabPage ? "New tab" : UrlDisplay.Short(tab.Url);
-        PreviewState.Text = tab.IsSleeping ? "Sleeping to save memory" : tab.IsPlayingAudio ? "Playing audio" : string.Empty;
+        PreviewState.Text = tab.IsDiscarded ? "Unloaded to save memory · reloads when opened" : tab.IsSleeping ? "Sleeping to save memory" : tab.IsPlayingAudio ? "Playing audio" : string.Empty;
         PreviewState.Visibility = PreviewState.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         // The active tab is already on screen, so its preview only shows the text.
         var showImage = tab.Thumbnail is not null && !ReferenceEquals(tab, ViewModel.ActiveTab);
@@ -653,7 +663,45 @@ public partial class MainWindow : Window
 
     private void OnTabCloseClick(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is BrowserTab tab) ViewModel.CloseTab(tab);
+        if ((sender as FrameworkElement)?.DataContext is not BrowserTab tab) return;
+        var container = (VTabsList.ItemContainerGenerator.ContainerFromItem(tab) ?? TabsList.ItemContainerGenerator.ContainerFromItem(tab)) as FrameworkElement;
+        if (container is not { IsVisible: true }) { ViewModel.CloseTab(tab); return; }
+        // Fade the tab out before it is removed.
+        container.IsHitTestVisible = false;
+        var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(130));
+        fade.Completed += (_, _) =>
+        {
+            ViewModel.CloseTab(tab);
+            container.BeginAnimation(OpacityProperty, null);
+            container.IsHitTestVisible = true;
+        };
+        container.BeginAnimation(OpacityProperty, fade);
+    }
+
+    private void OnSavedLoginsClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.ActiveTab is not { } tab) return;
+        var menu = new ContextMenu { PlacementTarget = (UIElement)sender, Placement = PlacementMode.Bottom };
+        foreach (var login in ViewModel.Logins.ToList())
+            menu.Items.Add(Item(login.Username.Length > 0 ? login.Username : "(no username)", "\uE8D7", () => _ = FillLoginAsync(tab, login)));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item("Manage passwords", "\uE8D7", App.Current.ShowPasswords));
+        menu.IsOpen = true;
+    }
+
+    private async Task FillLoginAsync(BrowserTab tab, Relay.Data.SavedLogin login)
+    {
+        var password = await _s.Passwords.GetPasswordAsync(login.Id);
+        if (password is null) { ShowToast(Icons.Warning, "Couldn't read that password", "It was saved by another Windows account or PC."); return; }
+        if (!await tab.FillLoginAsync(login.Origin, login.Username, password))
+            ShowToast(Icons.Warning, "No sign-in form found", "Open the page's sign-in form and try again.");
+    }
+
+    private void OnPinnedMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (TabFrom(e.OriginalSource) is not { } tab) return;
+        ViewModel.ActiveTab = tab;
+        e.Handled = true;
     }
 
     private void OnTabMuteClick(object sender, RoutedEventArgs e)
@@ -735,6 +783,7 @@ public partial class MainWindow : Window
         var index = vm.Tabs.IndexOf(tab);
         var menu = new ContextMenu();
         menu.Items.Add(Item("New tab to the right", Icons.Add, () => vm.AddTab(null, true, index + 1), "Ctrl+T"));
+        menu.Items.Add(Item(tab.IsPinned ? "Unpin tab" : "Pin tab", tab.IsPinned ? "\uE77A" : "\uE718", () => vm.TogglePin(tab)));
         menu.Items.Add(new Separator());
         menu.Items.Add(Item("Reload", Icons.Refresh, tab.Reload, "Ctrl+R"));
         menu.Items.Add(Item("Duplicate", Icons.Duplicate, () => vm.DuplicateTab(tab)));
@@ -742,6 +791,7 @@ public partial class MainWindow : Window
         menu.Items.Add(Item("Add to reading list", Icons.ReadingList, () => _ = vm.AddToReadingListAsync(tab), enabled: !tab.IsNewTabPage));
         menu.Items.Add(Item("Copy link", Icons.Link, () => TrySetClipboard(tab.Url), enabled: !tab.IsNewTabPage));
         menu.Items.Add(Item("Put tab to sleep", "\uE708", () => _ = tab.SleepNowAsync(), enabled: tab.IsCreated && !tab.IsVisibleTab && !tab.IsSleeping));
+        menu.Items.Add(Item("Unload tab to free memory", "\uE74D", () => tab.Discard(), enabled: tab.CanDiscard));
         menu.Items.Add(new Separator());
         // Split view
         if (vm.IsSplit && (ReferenceEquals(tab, vm.SplitLeft) || ReferenceEquals(tab, vm.SplitRight)))
@@ -800,6 +850,7 @@ public partial class MainWindow : Window
         menu.Items.Add(Item("Bookmarks", Icons.Bookmarks, () => OpenPanel(SidebarPanel.Bookmarks), "Ctrl+Shift+O"));
         menu.Items.Add(Item("History", Icons.History, () => OpenPanel(SidebarPanel.History), "Ctrl+H"));
         menu.Items.Add(Item("Downloads", Icons.Download, () => OpenPanel(SidebarPanel.Downloads), "Ctrl+J"));
+        menu.Items.Add(Item("Passwords", "\uE8D7", App.Current.ShowPasswords));
         menu.Items.Add(Item("Reading list", Icons.ReadingList, () => OpenPanel(SidebarPanel.ReadingList)));
         menu.Items.Add(new Separator());
         menu.Items.Add(Item("Find on page", Icons.Find, () => _ = vm.ActiveTab?.FindAsync(), "Ctrl+F", vm.ActiveTab?.IsCreated == true));
@@ -816,7 +867,9 @@ public partial class MainWindow : Window
         menu.Items.Add(Item("Vertical tabs", vm.VerticalTabs ? Icons.Check : "\uE8A4", ToggleVerticalTabs));
         menu.Items.Add(Item("Command palette", Icons.Search, OpenPalette, "Ctrl+K"));
         menu.Items.Add(Item("Developer tools", Icons.Code, () => vm.ActiveTab?.OpenDevTools(), "F12", vm.ActiveTab?.IsCreated == true));
+        menu.Items.Add(Item("Task manager", "\uE9D9", () => App.Current.ShowTaskManager(), "Shift+Esc"));
         menu.Items.Add(new Separator());
+        menu.Items.Add(Item("Import browser data…", Icons.Import, () => _ = ImportDialog.ShowAsync(this, _s)));
         menu.Items.Add(Item("Clear browsing data…", Icons.Clear, () => OnClearData(this, new RoutedEventArgs())));
         menu.Items.Add(Item("Settings", Icons.Settings, () => App.Current.ShowSettings()));
         menu.Items.Add(Item("About RELAY", Icons.Info, () => App.Current.ShowSettings("about")));
@@ -1083,7 +1136,9 @@ public partial class MainWindow : Window
                         break;
                     }
                     if (Relay.Core.Downloads.FileNameSafety.IsDangerous(item.FilePath) &&
-                        !RelayDialog.Confirm(this, "Open this file?", $"“{item.FileName}” can run programs on your computer. Open it only if you trust it.", "Open", danger: true, glyph: Icons.Warning))
+                        !RelayDialog.ConfirmFile(this, "Open this file?", item.FilePath,
+                            string.Join(" · ", new[] { FileIcons.Size(new FileInfo(item.FilePath).Length), item.Host.Length > 0 ? "from " + item.Host : null }.Where(x => !string.IsNullOrEmpty(x))),
+                            "This file can run programs on your computer. Only open it if you trust where it came from."))
                         break;
                     DownloadManager.Open(item);
                     break;
@@ -1283,40 +1338,15 @@ public partial class MainWindow : Window
             PlacementTarget = (UIElement)sender,
             Placement = PlacementMode.Bottom,
         };
-        menu.Items.Add(Item("Import bookmarks…", Icons.Import, () => _ = ImportBookmarksAsync()));
+        menu.Items.Add(Item("Import from another browser…", Icons.Import, () => _ = ImportDialog.ShowAsync(this, _s)));
+        menu.Items.Add(Item("Import bookmarks file…", Icons.Import, () => _ = ImportBookmarksAsync()));
         menu.Items.Add(Item("Export bookmarks…", Icons.Export, () => _ = ExportBookmarksAsync()));
         menu.IsOpen = true;
     }
 
     private async Task ImportBookmarksAsync()
     {
-        var dlg = new OpenFileDialog
-        {
-            Title = "Import bookmarks",
-            Filter = "Bookmark files (*.html;*.htm)|*.html;*.htm|All files|*.*",
-        };
-        if (dlg.ShowDialog(this) != true) return;
-        try
-        {
-            var info = new FileInfo(dlg.FileName);
-            if (info.Length > 50 * 1024 * 1024) throw new InvalidDataException("The file is too large to be a bookmark export.");
-            var html = await File.ReadAllTextAsync(dlg.FileName);
-            var tree = await Task.Run(() => NetscapeBookmarks.Parse(html));
-            var count = tree.CountBookmarks();
-            if (count == 0)
-            {
-                RelayDialog.Info(this, "No bookmarks found", "That file doesn't contain bookmarks in the standard HTML format that browsers export.", Icons.Warning);
-                return;
-            }
-            var added = await _s.Bookmarks.ImportAsync(tree, $"Imported {DateTime.Now:yyyy-MM-dd}");
-            RelayDialog.Info(this, "Bookmarks imported", $"{added} bookmarks were added to a new folder.", Icons.Check);
-            ViewModel.Sidebar.Panel = SidebarPanel.Bookmarks;
-        }
-        catch (Exception ex)
-        {
-            _s.Paths.LogError("Import bookmarks", ex);
-            RelayDialog.Info(this, "Import failed", ex.Message, Icons.Warning);
-        }
+        if (await ImportDialog.ImportBookmarksFileAsync(this, _s)) ViewModel.Sidebar.Panel = SidebarPanel.Bookmarks;
     }
 
     private async Task ExportBookmarksAsync()
@@ -1376,10 +1406,95 @@ public partial class MainWindow : Window
 
     private void OnVerticalNewTab(object sender, RoutedEventArgs e) => ViewModel.NewTab();
 
-    private void OnToggleVerticalCollapse(object sender, RoutedEventArgs e) =>
+    private void OnToggleVerticalCollapse(object sender, RoutedEventArgs e)
+    {
+        _hoverExpandTimer?.Stop();
+        ViewModel.SidebarHoverExpanded = false;
         _s.Settings.Update(s => s.VerticalTabsCollapsed = !s.VerticalTabsCollapsed);
+    }
 
-    private void UpdateVerticalWidth() => VerticalTabsPanel.Width = ViewModel.VerticalTabsCollapsed ? 56 : 248;
+    // Collapsed vertical tabs expand while the mouse rests on them (Zen's compact mode).
+    private DispatcherTimer? _hoverExpandTimer;
+
+    private void OnVerticalPanelEnter(object sender, MouseEventArgs e)
+    {
+        if (!ViewModel.VerticalTabsCollapsed) return;
+        if (_hoverExpandTimer is null)
+        {
+            _hoverExpandTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
+            _hoverExpandTimer.Tick += (_, _) =>
+            {
+                _hoverExpandTimer.Stop();
+                if (VerticalTabsPanel.IsMouseOver) ViewModel.SidebarHoverExpanded = true;
+            };
+        }
+        _hoverExpandTimer.Start();
+    }
+
+    private void OnVerticalPanelLeave(object sender, MouseEventArgs e)
+    {
+        _hoverExpandTimer?.Stop();
+        ViewModel.SidebarHoverExpanded = false;
+    }
+
+    /// <summary>
+    /// Vertical tabs use the Zen-style layout: no tab strip, the toolbar doubles as the title bar,
+    /// and the page floats as a rounded card on the window background.
+    /// </summary>
+    private void ApplyZenLayout()
+    {
+        var vertical = ViewModel.VerticalTabs;
+        var zen = vertical && !_isFullScreen;
+        StripRow.Visibility = _isFullScreen || vertical ? Visibility.Collapsed : Visibility.Visible;
+        ToolbarCaption.Visibility = zen ? Visibility.Visible : Visibility.Collapsed;
+        Toolbar.SetResourceReference(Border.BackgroundProperty, zen ? "Brush.Chrome" : "Brush.Toolbar");
+        Toolbar.BorderThickness = zen ? new Thickness(0) : new Thickness(0, 0, 0, 1);
+        ContentGrid.SetResourceReference(Panel.BackgroundProperty, zen ? "Brush.Chrome" : "Brush.Toolbar");
+        ContentArea.Margin = zen ? new Thickness(0, 0, 8, 8) : new Thickness(0);
+        ViewModel.PageCornerRadius = zen ? 10 : 0;
+        ApplyDensity();
+    }
+
+    private const double VerticalWide = 248, VerticalNarrow = 56;
+
+    /// <summary>
+    /// Slides the vertical tab list open or closed. The tabs keep one layout for the whole slide: when expanding
+    /// the full layout is shown first and revealed as the panel grows; when collapsing it stays (clipped) until
+    /// the panel is narrow, and only then switches to icons. Nothing inside reflows mid-animation.
+    /// </summary>
+    private void UpdateVerticalWidth(bool animate = true)
+    {
+        var narrow = ViewModel.VerticalTabsNarrow;
+        var target = narrow ? VerticalNarrow : VerticalWide;
+        if (!animate || !IsLoaded)
+        {
+            _verticalTarget = target;
+            VerticalTabsPanel.BeginAnimation(WidthProperty, null);
+            VerticalTabsPanel.Width = target;
+            SetVerticalCompact(narrow);
+            return;
+        }
+        if (_verticalTarget == target) return; // already there or on the way
+        _verticalTarget = target;
+        if (!narrow) SetVerticalCompact(false);
+        var anim = new DoubleAnimation(target, TimeSpan.FromMilliseconds(narrow ? 200 : 240))
+        {
+            EasingFunction = new CubicEase { EasingMode = narrow ? EasingMode.EaseIn : EasingMode.EaseOut },
+        };
+        if (narrow) anim.Completed += (_, _) => { if (ViewModel.VerticalTabsNarrow) SetVerticalCompact(true); };
+        VerticalTabsPanel.BeginAnimation(WidthProperty, anim);
+    }
+
+    private double _verticalTarget = double.NaN;
+
+    private void SetVerticalCompact(bool compact)
+    {
+        if (ViewModel.VerticalTabsCompact == compact && VerticalTabsContent.Width == (compact ? VerticalNarrow : VerticalWide)) return;
+        ViewModel.VerticalTabsCompact = compact;
+        VerticalTabsContent.Width = compact ? VerticalNarrow : VerticalWide;
+        // The icon layout settles in with a quick fade instead of a jump.
+        if (compact) VerticalTabsContent.BeginAnimation(OpacityProperty, new DoubleAnimation(0.4, 1, TimeSpan.FromMilliseconds(140)));
+    }
 
     // ======================================================================================
     // Split view
@@ -1584,6 +1699,8 @@ public partial class MainWindow : Window
             new("Downloads", "Sidebar", Icons.Download, "Ctrl+J", () => OpenPanel(SidebarPanel.Downloads)),
             new("Reading list", "Sidebar", Icons.ReadingList, "", () => OpenPanel(SidebarPanel.ReadingList)),
             new("Settings", "RELAY", Icons.Settings, "", () => App.Current.ShowSettings()),
+            new("Passwords", "RELAY", "\uE8D7", "", App.Current.ShowPasswords),
+            new("Import from another browser", "RELAY", Icons.Import, "", () => _ = ImportDialog.ShowAsync(this, _s)),
             new(vm.IsSplit ? "Close split view" : "Split view with a new tab", "Tabs", "\uE89F", "", () => { if (vm.IsSplit) vm.CloseSplit(); else vm.SplitWithNewTab(); }),
             new(vm.VerticalTabs ? "Use horizontal tabs" : "Use vertical tabs", "Tabs", "\uE8A4", "", ToggleVerticalTabs),
             new("Toggle sidebar", "Sidebar", Icons.Sidebar, "Ctrl+Shift+B", ToggleSidebar),
@@ -1592,6 +1709,8 @@ public partial class MainWindow : Window
             new(App.Current.Theme.IsDark ? "Switch to light theme" : "Switch to dark theme", "Appearance", "\uE793", "",
                 () => _s.Settings.Update(s => s.Theme = App.Current.Theme.IsDark ? Relay.Core.Settings.ThemeMode.Light : Relay.Core.Settings.ThemeMode.Dark)),
             new("Put background tabs to sleep", "Performance", "\uE708", "", () => { foreach (var t in vm.Tabs) _ = t.SleepNowAsync(); }),
+            new("Unload background tabs to free memory", "Performance", "\uE74D", "", () => { foreach (var t in vm.Tabs) t.Discard(); }),
+            new("Task manager", "Performance", "\uE9D9", "Shift+Esc", () => App.Current.ShowTaskManager()),
             new("About RELAY", "RELAY", Icons.Info, "", () => App.Current.ShowSettings("about")),
         };
         if (tab is not null)

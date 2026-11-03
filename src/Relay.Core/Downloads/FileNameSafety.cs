@@ -23,6 +23,7 @@ public static class FileNameSafety
         ".ps1", ".psm1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh", ".hta", ".cpl", ".msc", ".jar",
         ".lnk", ".reg", ".dll", ".sys", ".inf", ".application", ".appref-ms", ".gadget", ".msp", ".scf",
         ".url", ".iso", ".img", ".vhd", ".vhdx", ".chm", ".docm", ".xlsm", ".pptm",
+        ".appinstaller", ".settingcontent-ms", ".search-ms", ".library-ms", ".msu", ".ocx", ".psd1", ".ps1xml", ".wsc", ".sct", ".xll", ".xlam", ".dotm", ".ppam", ".jnlp", ".diagcab",
     };
 
     public const int MaxNameLength = 180;

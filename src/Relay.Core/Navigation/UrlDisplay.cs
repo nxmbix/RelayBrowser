@@ -8,6 +8,11 @@ public static class UrlDisplay
     public const string UserAssetsHost = "assets.relay";
     public const string ReaderHost = "reader.relay";
     public const string ReaderUrl = "https://reader.relay/reader.html";
+    public const string PasswordsHost = "passwords.relay";
+    public const string PasswordsUrl = "https://passwords.relay/passwords.html";
+    public const string SettingsHost = "settings.relay";
+    public const string SettingsUrl = "https://settings.relay/settings.html";
+    public const string RelayScheme = "relay";
 
     public static bool IsReader(string? url) =>
         url is not null && Uri.TryCreate(url, UriKind.Absolute, out var u) &&
@@ -17,16 +22,58 @@ public static class UrlDisplay
         url is not null && Uri.TryCreate(url, UriKind.Absolute, out var u) &&
         u.Host.Equals(NewTabHost, StringComparison.OrdinalIgnoreCase);
 
+    public static bool IsPasswords(string? url) =>
+        url is not null && Uri.TryCreate(url, UriKind.Absolute, out var u) &&
+        u.Scheme == Uri.UriSchemeHttps && u.Host.Equals(PasswordsHost, StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsSettings(string? url) =>
+        url is not null && Uri.TryCreate(url, UriKind.Absolute, out var u) &&
+        u.Scheme == Uri.UriSchemeHttps && u.Host.Equals(SettingsHost, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The settings page address for a section ("privacy" → …/settings.html#privacy).</summary>
+    public static string SettingsSectionUrl(string? section) =>
+        string.IsNullOrWhiteSpace(section) ? SettingsUrl : SettingsUrl + "#" + Uri.EscapeDataString(section.Trim().ToLowerInvariant());
+
     public static bool IsInternal(string? url) =>
         url is not null && Uri.TryCreate(url, UriKind.Absolute, out var u) &&
         (u.Host.Equals(NewTabHost, StringComparison.OrdinalIgnoreCase) ||
          u.Host.Equals(UserAssetsHost, StringComparison.OrdinalIgnoreCase) ||
-         u.Host.Equals(ReaderHost, StringComparison.OrdinalIgnoreCase));
+         u.Host.Equals(ReaderHost, StringComparison.OrdinalIgnoreCase) ||
+         u.Host.Equals(PasswordsHost, StringComparison.OrdinalIgnoreCase) ||
+         u.Host.Equals(SettingsHost, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>"relay://passwords", "relay://settings/privacy" → the internal page's real address; null for anything else.</summary>
+    public static string? ResolveRelayUrl(string text)
+    {
+        if (!text.StartsWith(RelayScheme + ":", StringComparison.OrdinalIgnoreCase)) return null;
+        var name = text[(RelayScheme.Length + 1)..].TrimStart('/').TrimEnd('/').ToLowerInvariant();
+        var slash = name.IndexOf('/');
+        var section = slash >= 0 ? name[(slash + 1)..] : null;
+        if (slash >= 0) name = name[..slash];
+        return name switch
+        {
+            "passwords" when section is null => PasswordsUrl,
+            "newtab" when section is null => NewTabUrl,
+            "settings" when section is null || IsSettingsSection(section) => SettingsSectionUrl(section),
+            _ => null,
+        };
+    }
+
+    public static readonly IReadOnlyList<string> SettingsSections = ["general", "appearance", "privacy", "blocking", "downloads", "about"];
+
+    private static bool IsSettingsSection(string? section) =>
+        section is not null && SettingsSections.Contains(section, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Text for the address bar. Internal pages show as empty so the user can type.</summary>
     public static string ForAddressBar(string? url)
     {
         if (string.IsNullOrEmpty(url) || IsNewTab(url) || url == "about:blank") return string.Empty;
+        if (IsPasswords(url)) return "relay://passwords";
+        if (IsSettings(url))
+        {
+            var section = Uri.TryCreate(url, UriKind.Absolute, out var su) ? su.Fragment.TrimStart('#') : string.Empty;
+            return IsSettingsSection(section) ? "relay://settings/" + section : "relay://settings";
+        }
         return Uri.TryCreate(url, UriKind.Absolute, out var u) ? Unescape(u) : url;
     }
 

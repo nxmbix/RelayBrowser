@@ -85,11 +85,14 @@ Relay/
 **What's new in 1.1**
 * **Search engine choice on first launch** (shuffled, nothing preselected) — now including Yahoo.
 * **RELAY Setup.exe** — a custom installer wizard (per-user, no admin, no Windows Installer) with update-in-place and a matching uninstaller, alongside the portable ZIP.
-* **Built-in ad and tracker blocker** using EasyList, EasyPrivacy, Peter Lowe's list and (optional) cookie-notice hiding; a shield in the address bar shows how much was blocked and turns blocking off for a site; your own filter rules; a running total on the new tab page.
+* **Built-in ad and tracker blocker** using EasyList, EasyPrivacy, Peter Lowe's list and (optional) cookie-notice hiding; a shield in the address bar shows how much was blocked and turns blocking off for a site; your own filter rules; a running total on the new tab page. On YouTube, ad data is removed from the player before it loads and any ad that still starts is skipped.
 * **Sleeping tabs**: background tabs use less memory right away and are suspended after 15 minutes (configurable; tabs playing audio stay awake). The engine also starts while the window is being built.
+* **Memory saver**: tabs left in the background for an hour (configurable) are unloaded completely, freeing all of their memory, and reload when you open them. Tabs playing audio, private tabs and tabs with a download running are kept. Right-click a tab → "Unload tab to free memory" to do it now.
+* **Task manager** (Shift+Esc): real memory and CPU for every tab and every WebView2 process, measured like Windows Task Manager, with a total for the whole browser.
 * **Tab hover previews** with a thumbnail, and a gentle animation when tabs open.
 * **Tab groups** with names and nine colours: collapse, rename, recolour, ungroup or close a group; groups are restored with your session.
-* **Vertical tabs** (collapsible to icons) as an alternative to the tab strip.
+* **Vertical tabs, Zen-style**: pinned tabs as tiles at the top (right-click a tab → Pin tab), the toolbar doubles as the title bar and the page floats as a rounded card. Collapse the list to icons and it slides open when you hover it.
+* **Animations**: tabs slide in and fade out, buttons spring when pressed, hovers fade, and menus and tooltips fade in.
 * **Split view**: two tabs side by side with a draggable divider; the address bar follows the pane you click.
 * **Command palette (Ctrl+K)**: fuzzy search over every command, your open tabs, bookmarks and history.
 * **Reader view (F9)** with serif/sans, text size and light/sepia/dark themes.
@@ -152,8 +155,25 @@ Relay/
 | Ctrl+ + / − / 0 | Zoom in / out / reset | F11 | Full screen |
 | Alt+F | Menu | F12 | Developer tools |
 | Ctrl+K | Command palette | F9 | Reader view |
+| Shift+Esc | Task manager | | |
 
 ---
+
+## Default browser
+
+Setup registers RELAY as a browser for your user account (http/https links plus .html, .svg and .pdf files; no admin rights needed), so it appears in Windows' **Default apps**. If you leave "Make RELAY my default browser" ticked, Setup opens that page when it finishes. You can also use Settings → General → **Make default** at any time. Windows 10 and 11 don't let any app switch the default browser by itself: you confirm it in Windows Settings (on Windows 11 the page opens directly on RELAY). Uninstalling removes the registration.
+
+## Passwords
+
+Export passwords from your old browser as a CSV file (Chrome/Edge/Brave/Opera/Vivaldi: password settings → Export; Firefox: Passwords → ⋯ → Export). Then use ⋯ → Import browser data → From a file…, or Settings → Privacy → Import CSV…. RELAY stores them encrypted with Windows DPAPI for your account, and offers to delete the plain-text CSV afterwards. On a sign-in page with a saved login, a key appears in the toolbar. Pick an account and RELAY fills the page. Nothing is filled automatically, logins are tied to the exact site (scheme, host and port), and private windows never use them. RELAY doesn't read other browsers' password databases.
+
+## RELAY in Windows Task Manager
+
+Windows Task Manager (Processes tab) groups a desktop app by its **process tree**: everything started by the process that owns the window is listed under it. RELAY creates one shared WebView2 environment, so the WebView2 browser process is a child of `Relay.exe` and the renderer, GPU and utility processes are its children. They all show up together under **RELAY Browser** (the name comes from `Relay.exe`'s file description). RELAY's own task manager (Shift+Esc) checks this and says if any engine process isn't under RELAY.
+
+* The child rows are named **Microsoft Edge WebView2**, from `msedgewebview2.exe`'s own version info. Windows has no API to rename them or show their type, and WebView2 has no option for it. To see the type of each process, use Shift+Esc → **Engine details** (WebView2's built-in browser task manager) or RELAY's own list.
+* RELAY sets an explicit AppUserModelID (`RELAY.Browser`, or `RELAY.Browser.Portable` for the portable copy) on its process and its shortcuts, so windows, taskbar pins and Start menu entries count as one app. The AppUserModelID only affects the taskbar and shell. It doesn't change how Task Manager groups processes.
+* Nothing is injected, hidden, merged or renamed. WebView2 keeps its normal process separation and sandbox.
 
 ## Security and privacy design
 
@@ -170,12 +190,12 @@ Relay/
 ## Known limitations (honest list)
 
 * **Built and unit-tested in a Linux environment.** The solution compiles cleanly for Windows (0 warnings), the 81 unit tests pass, the ad-blocking engine was checked against the real EasyList/EasyPrivacy lists, and the new tab page and reader view were rendered and click-tested in Chromium — but the WPF window itself can't be launched there, so new 1.1 features were not clicked through by hand on Windows. Please report anything that misbehaves on first run; `relay-errors.log` in the data folder records unexpected errors.
-* No browser extensions (WebView2's extension support is limited and unstable), no sync, no tab groups, no reader mode.
+* No browser extensions (WebView2's extension support is limited and unstable), no sync.
 * WebView2 doesn't tell RELAY whether a link was Ctrl-clicked, so links that open new tabs always open in the foreground.
 * Tabs can be reordered within a window but not dragged out into another window.
 * Pause/resume works only when the server supports resuming; otherwise the download restarts from *Retry*.
 * **No list of saved passwords.** WebView2 doesn't let apps read the passwords its engine saves, so RELAY can offer to save and fill them (encrypted by Windows) and can remove them all, but it can't show or edit them one by one. A dedicated password manager is the better choice if you need that.
-* The ad blocker works on network requests and element hiding. It doesn't run scripts inside pages, so ads served from the same address as the content (some YouTube ads, for example) may still appear. Videos inside embedded frames can't be put into picture-in-picture from the menu.
+* The ad blocker works on network requests and element hiding, plus a small script on YouTube only. Ads served from the same address as the content on other sites may still appear, and YouTube can change its player at any time. Videos inside embedded frames can't be put into picture-in-picture from the menu.
 * `RELAY Setup.exe` is about 120 MB because it carries its own copy of .NET so nothing else has to be installed first. It isn't code-signed, so SmartScreen asks for confirmation the first time.
 * Cookie management and clearing site data need at least one page open in a normal window (that's when the engine profile is live).
 * "Do Not Track" isn't offered: WebView2 has no supported switch for it and RELAY doesn't inject headers into every request.

@@ -24,4 +24,7 @@ public interface IBrowserUi
 
     /// <summary>Opens RELAY settings (used by the new tab page).</summary>
     void OpenSettings(string? section);
+
+    /// <summary>Lets the user pick a passwords CSV and imports it (used by relay://passwords).</summary>
+    Task ImportPasswordsAsync();
 }

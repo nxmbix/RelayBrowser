@@ -61,18 +61,56 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ButtonBase">
-                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8" SnapsToDevicePixels="True">
+                    <Grid Background="Transparent" RenderTransformOrigin="0.5,0.5">
+                        <Grid.RenderTransform>
+                            <ScaleTransform x:Name="PressScale"/>
+                        </Grid.RenderTransform>
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8" SnapsToDevicePixels="True"/>
+                        <Border x:Name="HoverLayer" Background="{DynamicResource Brush.Hover}" CornerRadius="8" Opacity="0" SnapsToDevicePixels="True"/>
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
                                           TextElement.FontFamily="{StaticResource Font.Icons}"
                                           TextElement.FontSize="{TemplateBinding FontSize}"/>
-                    </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.Hover}"/>
                             <Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="HoverLayer" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="HoverLayer" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.Pressed}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="PressScale" Storyboard.TargetProperty="ScaleX" To="0.88" Duration="0:0:0.08"/>
+                                        <DoubleAnimation Storyboard.TargetName="PressScale" Storyboard.TargetProperty="ScaleY" To="0.88" Duration="0:0:0.08"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="PressScale" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.3">
+                                            <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.6"/></DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                        <DoubleAnimation Storyboard.TargetName="PressScale" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.3">
+                                            <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.6"/></DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                         <Trigger Property="ToggleButton.IsChecked" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.AccentSubtle}"/>
@@ -186,6 +224,16 @@
     </Style>
     <Style x:Key="Button.Danger" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
         <Setter Property="Foreground" Value="{DynamicResource Brush.Danger}"/>
+    </Style>
+    <Style x:Key="Button.Neutral" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Neutral}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Neutral}"/>
+    </Style>
+    <Style x:Key="Button.DangerFilled" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Danger}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Danger}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Brush.DangerText}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style x:Key="Button.Link" TargetType="Button">
         <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}"/>
@@ -370,6 +418,21 @@
                 <ControlTemplate TargetType="ToolTip">
                     <Border Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1"
                             CornerRadius="6" Padding="8,5" Margin="0,0,0,0">
+                        <Border.RenderTransform>
+                            <TranslateTransform/>
+                        </Border.RenderTransform>
+                        <Border.Triggers>
+                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.14"/>
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="-3" To="0" Duration="0:0:0.22">
+                                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Border.Triggers>
                         <ContentPresenter/>
                     </Border>
                 </ControlTemplate>
@@ -388,6 +451,21 @@
                 <ControlTemplate TargetType="ContextMenu">
                     <Border Margin="0,0,10,12" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.BorderStrong}"
                             BorderThickness="1" CornerRadius="10" Padding="4" MinWidth="220">
+                        <Border.RenderTransform>
+                            <TranslateTransform/>
+                        </Border.RenderTransform>
+                        <Border.Triggers>
+                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.14"/>
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="-6" To="0" Duration="0:0:0.22">
+                                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Border.Triggers>
                         <Border.Effect>
                             <DropShadowEffect BlurRadius="18" ShadowDepth="4" Direction="270" Opacity="0.22" Color="Black"/>
                         </Border.Effect>
@@ -666,14 +744,15 @@
         </Setter>
     </Style>
 
-    <!-- ===== Dialog window ===== -->
+    <!-- ===== Dialog window (RelayDialog): a transparent window holding a rounded card with a shadow ===== -->
     <Style x:Key="DialogWindow" TargetType="Window">
         <Setter Property="WindowStyle" Value="None"/>
+        <Setter Property="AllowsTransparency" Value="True"/>
         <Setter Property="ResizeMode" Value="NoResize"/>
         <Setter Property="SizeToContent" Value="WidthAndHeight"/>
         <Setter Property="ShowInTaskbar" Value="False"/>
-        <Setter Property="WindowStartupLocation" Value="CenterOwner"/>
-        <Setter Property="Background" Value="{DynamicResource Brush.Surface}"/>
+        <!-- WindowStartupLocation isn't a dependency property, so RelayDialog sets it in code. -->
+        <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/>
         <Setter Property="FontFamily" Value="{DynamicResource Font.UI}"/>
         <Setter Property="FontSize" Value="{DynamicResource Font.Size}"/>

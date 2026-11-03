@@ -49,14 +49,18 @@ public sealed class BrowserUi : IBrowserUi
     public async Task<bool> ConfirmDangerousDownloadAsync(string fileName, string host)
     {
         await Task.Yield();
-        return await Application.Current.Dispatcher.InvokeAsync(() => RelayDialog.Confirm(Owner,
-            "Keep this file?",
-            $"“{fileName}” from {host} can run programs on your computer. Only keep it if you trust where it came from. RELAY will never open it automatically.",
-            "Keep file", danger: true, glyph: Icons.Warning));
+        return await Application.Current.Dispatcher.InvokeAsync(() => RelayDialog.ConfirmFile(Owner,
+            "Keep this file?", fileName, host.Length > 0 ? "from " + host : null,
+            "This file can run programs on your computer. Only keep it if you trust where it came from. RELAY will never open it automatically."));
     }
 
     public void NotifyDownload(DownloadItem item, bool finished) =>
         App.Current.WindowManager?.LastActive?.ShowDownloadNotice(item, finished);
 
     public void OpenSettings(string? section) => App.Current.ShowSettings(section);
+
+    public async Task ImportPasswordsAsync()
+    {
+        if (Owner is { } owner) await ImportDialog.ImportPasswordsFileAsync(owner, App.Current.Services);
+    }
 }

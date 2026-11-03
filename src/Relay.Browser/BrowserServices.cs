@@ -21,10 +21,12 @@ public sealed class BrowserServices
         Permissions = new PermissionRepository(db);
         Favicons = new FaviconRepository(db);
         Sessions = new SessionRepository(db);
+        Passwords = new PasswordRepository(db, new DpapiProtector());
         Environment = new BrowserEnvironment(paths);
         Downloads = new DownloadManager(this);
         PermissionHandler = new PermissionHandler(this);
         NewTab = new NewTabService(this);
+        PasswordsPage = new PasswordsPageService(this);
         FaviconCache = new FaviconCache(Favicons);
         Blocker = new BlockerService(this);
     }
@@ -40,10 +42,14 @@ public sealed class BrowserServices
     public PermissionRepository Permissions { get; }
     public FaviconRepository Favicons { get; }
     public SessionRepository Sessions { get; }
+    public PasswordRepository Passwords { get; }
     public BrowserEnvironment Environment { get; }
     public DownloadManager Downloads { get; }
     public PermissionHandler PermissionHandler { get; }
     public NewTabService NewTab { get; }
+    public PasswordsPageService PasswordsPage { get; }
+    /// <summary>relay://settings. Supplied by the app, which owns the settings logic and dialogs.</summary>
+    public IInternalPage? SettingsPage { get; set; }
     public FaviconCache FaviconCache { get; }
     public BlockerService Blocker { get; }
 

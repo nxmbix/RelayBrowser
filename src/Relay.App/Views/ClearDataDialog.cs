@@ -69,6 +69,7 @@ public static class ClearDataDialog
         }
         if (downloads) await s.Downloads.ClearFinishedAsync();
         if (permissions) await s.Permissions.ClearAsync();
+        if (autofill) await s.Passwords.ClearAsync();
 
         var kinds = (CoreWebView2BrowsingDataKinds)0;
         if (cookies) kinds |= CoreWebView2BrowsingDataKinds.AllSite;

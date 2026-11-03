@@ -65,6 +65,46 @@ public sealed partial class BrowserTab
         }
     }
 
+    private const string FillScript = """
+        (function (o, u, p) {
+          try {
+            if (location.origin !== o) return false;
+            const vis = e => !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length);
+            const pw = [...document.querySelectorAll('input[type=password]')].find(e => vis(e) && !e.disabled && !e.readOnly);
+            if (!pw) return false;
+            const scope = pw.form || document;
+            let user = null;
+            for (const f of scope.querySelectorAll('input')) {
+              if (!vis(f) || f.disabled || !/^(text|email|tel|)$/i.test(f.getAttribute('type') || '')) continue;
+              if (f.compareDocumentPosition(pw) & Node.DOCUMENT_POSITION_FOLLOWING) user = f;
+            }
+            const set = (el, v) => {
+              Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, v);
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            };
+            if (user && u) set(user, u);
+            set(pw, p);
+            return true;
+          } catch (e) { return false; }
+        })
+        """;
+
+    /// <summary>
+    /// Fills a saved login into the top-level page, only if it is still on <paramref name="origin"/> (checked here and again in the page).
+    /// Runs only when the user picks the login; never automatically, never in private tabs or subframes.
+    /// </summary>
+    public async Task<bool> FillLoginAsync(string origin, string username, string password)
+    {
+        if (Core is not { } core || IsPrivate || Relay.Core.Passwords.PasswordOrigin.From(core.Source) != origin) return false;
+        try
+        {
+            var js = FillScript + "(" + JsonSerializer.Serialize(origin) + "," + JsonSerializer.Serialize(username) + "," + JsonSerializer.Serialize(password) + ")";
+            return await core.ExecuteScriptAsync(js) == "true";
+        }
+        catch (Exception ex) { _s.Paths.LogError("Fill login", ex); return false; }
+    }
+
     /// <summary>Toggles picture-in-picture for the main video on the page.</summary>
     public async Task<PipResult> TogglePictureInPictureAsync()
     {

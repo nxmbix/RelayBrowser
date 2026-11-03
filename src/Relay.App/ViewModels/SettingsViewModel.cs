@@ -125,6 +125,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         get => SleepOptions.FirstOrDefault(o => o.Minutes == S.SleepTabsAfterMinutes) ?? SleepOptions[1];
         set { if (value is not null) Set<int>(s => s.SleepTabsAfterMinutes = value.Minutes); }
     }
+    public IReadOnlyList<SleepOption> DiscardOptions { get; } =
+        [new(30, "After 30 minutes"), new(60, "After 1 hour"), new(120, "After 2 hours"), new(240, "After 4 hours"), new(0, "Never")];
+    public SleepOption? DiscardAfter
+    {
+        get => DiscardOptions.FirstOrDefault(o => o.Minutes == S.DiscardTabsAfterMinutes) ?? DiscardOptions[1];
+        set { if (value is not null) Set<int>(s => s.DiscardTabsAfterMinutes = value.Minutes); }
+    }
     public bool TabHoverPreviews { get => S.TabHoverPreviews; set => Set<bool>(s => s.TabHoverPreviews = value); }
 
     // ---- Appearance -------------------------------------------------------------------
@@ -138,6 +145,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public TabDensity TabDensity { get => S.TabDensity; set => Set<TabDensity>(s => s.TabDensity = value); }
     public bool ShowTabFavicons { get => S.ShowTabFavicons; set => Set<bool>(s => s.ShowTabFavicons = value); }
     public bool SidebarEnabled { get => S.SidebarEnabled; set => Set<bool>(s => s.SidebarEnabled = value); }
+    public bool PinnedTabsInSidebar { get => S.PinnedTabsInSidebar; set => Set<bool>(s => s.PinnedTabsInSidebar = value); }
 
     public IReadOnlyList<string> FontChoices { get; }
     public string InterfaceFont { get => S.InterfaceFont; set => Set<string>(s => s.InterfaceFont = value); }
@@ -332,6 +340,24 @@ public sealed partial class SettingsViewModel : ObservableObject
     public string SdkVersion => typeof(Microsoft.Web.WebView2.Core.CoreWebView2).Assembly.GetName().Version?.ToString() ?? "Unknown";
     public string DotNetVersion => Environment.Version.ToString();
     public string DataFolder => _s.Paths.Root;
+    public bool IsDefaultBrowser => Relay.Installer.DefaultBrowser.IsDefault();
+    public string DefaultBrowserStatus => IsDefaultBrowser
+        ? "RELAY is your default browser. Links from other apps open here."
+        : "Links from other apps open in another browser. Windows asks you to confirm the change in Settings → Default apps.";
+
+    public void MakeDefaultBrowser()
+    {
+        try { if (Environment.ProcessPath is { } exe) Relay.Installer.DefaultBrowser.Register(exe); }
+        catch (Exception ex) { _s.Paths.LogError("Registering as a browser", ex); }
+        Relay.Installer.DefaultBrowser.OpenWindowsSettings();
+    }
+
+    public void RefreshDefaultBrowser()
+    {
+        OnPropertyChanged(nameof(IsDefaultBrowser));
+        OnPropertyChanged(nameof(DefaultBrowserStatus));
+    }
+
     public string StorageMode => _s.Paths.IsPortable ? "Portable (data is stored next to RELAY.exe)" : "Per-user (data is stored in your local app data folder)";
 
     public string Licenses

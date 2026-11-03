@@ -16,6 +16,8 @@ public sealed class RelaySettings
     public string SearchEngineId { get; set; } = "google";
     /// <summary>False until the user picks an engine on the first-run choice screen.</summary>
     public bool SearchEngineChosen { get; set; }
+    /// <summary>The one-time "import from another browser" offer was shown.</summary>
+    public bool ImportOffered { get; set; }
     public string? CustomSearchTemplate { get; set; }
     public bool SearchSuggestions { get; set; } = true;
 
@@ -29,8 +31,12 @@ public sealed class RelaySettings
     public double DefaultZoom { get; set; } = 1.0;
     public bool SidebarVisible { get; set; }
     public bool SidebarEnabled { get; set; } = true;
+    /// <summary>With tabs on top, pinned tabs live in the sidebar instead of the tab strip.</summary>
+    public bool PinnedTabsInSidebar { get; set; } = true;
     /// <summary>Background tabs sleep after this many minutes (0 = never).</summary>
     public int SleepTabsAfterMinutes { get; set; } = 15;
+    /// <summary>Background tabs are unloaded completely (their memory is freed) after this many minutes (0 = never).</summary>
+    public int DiscardTabsAfterMinutes { get; set; } = 60;
     public bool TabHoverPreviews { get; set; } = true;
     public bool VerticalTabs { get; set; }
     public bool VerticalTabsCollapsed { get; set; }
@@ -45,6 +51,8 @@ public sealed class RelaySettings
 
     // Privacy
     public bool PasswordAutosave { get; set; }
+    /// <summary>Offer to save passwords typed into sign-in forms in RELAY's own encrypted store.</summary>
+    public bool OfferToSavePasswords { get; set; } = true;
     public bool GeneralAutofill { get; set; } = true;
     public bool ClearDataOnExit { get; set; }
     public bool PrivateSearchSuggestions { get; set; }
@@ -73,6 +81,8 @@ public sealed class RelaySettings
 
     [JsonIgnore]
     public static IReadOnlyList<string> AccentNames { get; } = ["Teal", "Cobalt", "Iris", "Amber", "Rose", "Graphite"];
+    /// <summary>A custom accent from the colour picker: "#RRGGBB".</summary>
+    public static bool IsCustomAccent(string? v) => v is { Length: 7 } && v[0] == '#' && v.Skip(1).All(Uri.IsHexDigit);
 
     public RelaySettings Clone()
     {

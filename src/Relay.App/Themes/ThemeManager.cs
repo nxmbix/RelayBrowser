@@ -43,6 +43,13 @@ public sealed class ThemeManager
         ["Graphite"] = (Hex("#46515C"), Hex("#AAB3BD")),
     };
 
+    /// <summary>A custom accent stored as "#RRGGBB" (any colour from the picker).</summary>
+    public static Color? TryCustom(string? value)
+    {
+        if (value is not { Length: 7 } || value[0] != '#') return null;
+        try { return (Color)ColorConverter.ConvertFromString(value); } catch { return null; }
+    }
+
     public static bool SystemPrefersDark()
     {
         try
@@ -57,7 +64,9 @@ public sealed class ThemeManager
     {
         var s = _settings.Current;
         IsDark = s.Theme switch { ThemeMode.Dark => true, ThemeMode.Light => false, _ => SystemPrefersDark() };
-        var accent = Accents.TryGetValue(s.Accent, out var a) ? (IsDark ? a.Dark : a.Light) : Hex("#1F7A6D");
+        var accent = Accents.TryGetValue(s.Accent, out var a) ? (IsDark ? a.Dark : a.Light)
+            : TryCustom(s.Accent) is { } custom ? (IsDark ? Mix(custom, Colors.White, 0.28) : custom)
+            : Hex("#1F7A6D");
 
         // Rebuilding every brush is only needed when something visual changed.
         var key = $"{IsDark}|{s.Accent}|{s.InterfaceFont}|{s.InterfaceFontSize}|{s.TabDensity}";
@@ -82,7 +91,7 @@ public sealed class ThemeManager
         _current = dict;
 
         _services.IsDarkTheme = IsDark;
-        var accentForPage = Accents.TryGetValue(s.Accent, out var pa) ? pa.Light : Hex("#1F7A6D");
+        var accentForPage = Accents.TryGetValue(s.Accent, out var pa) ? pa.Light : TryCustom(s.Accent) ?? Hex("#1F7A6D");
         _services.AccentHex = $"#{accentForPage.R:X2}{accentForPage.G:X2}{accentForPage.B:X2}";
         ThemeChanged?.Invoke(this, EventArgs.Empty);
         _services.NewTab.RaiseStateChanged();
@@ -138,6 +147,9 @@ public sealed class ThemeManager
         Brush("Brush.Field", Hex(p.Field));
         Brush("Brush.FieldFocus", Hex(p.FieldFocus));
         Brush("Brush.Danger", Hex(p.Danger));
+        Brush("Brush.DangerText", isDark ? Hex("#111315") : Colors.White);
+        Brush("Brush.Neutral", isDark ? Hex("#3A3D42") : Hex("#E4E7EA"));
+        Brush("Brush.DangerSubtle", Color.FromArgb(isDark ? (byte)46 : (byte)26, Hex(p.Danger).R, Hex(p.Danger).G, Hex(p.Danger).B));
         Brush("Brush.Scrim", Hex(p.Scrim));
         Brush("Brush.Shadow", Hex(p.Shadow));
         Brush("Brush.Accent", accent);
