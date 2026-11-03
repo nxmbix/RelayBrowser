@@ -16,7 +16,6 @@ namespace Relay.App;
 public partial class App : Application
 {
     private SingleInstance? _single;
-    private SettingsWindow? _settingsWindow;
     private TaskManagerWindow? _taskManager;
 
     public static new App Current => (App)Application.Current;
@@ -106,6 +105,7 @@ public partial class App : Application
         Theme = new ThemeManager(settings, Services);
         Theme.Apply();
         settings.Changed += (_, _) => Theme.Apply();
+        Services.SettingsPage = new SettingsPageService(Services, Theme); // after the theme, so the page gets the new colours
 
         var firstRun = !settings.Current.SearchEngineChosen;
         // First run: let the user pick a search engine. Nothing is preselected and the order is shuffled.
@@ -216,18 +216,21 @@ public partial class App : Application
         return list;
     }
 
+    /// <summary>Shows relay://settings (at a section), reusing a tab that already has it open.</summary>
     public void ShowSettings(string? section = null)
     {
-        if (_settingsWindow is { IsLoaded: true })
+        var url = UrlDisplay.SettingsSectionUrl(section);
+        var w = WindowManager?.LastActive ?? WindowManager?.Open(false);
+        if (w is null) return;
+        var vm = w.ViewModel;
+        if (vm.Tabs.FirstOrDefault(t => t.IsSettingsPage) is { } existing)
         {
-            _settingsWindow.Navigate(section);
-            if (_settingsWindow.WindowState == WindowState.Minimized) _settingsWindow.WindowState = WindowState.Normal;
-            _settingsWindow.Activate();
-            return;
+            vm.ActiveTab = existing;
+            if (section is not null) existing.Navigate(url);
         }
-        _settingsWindow = new SettingsWindow(Services, section);
-        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
-        _settingsWindow.Show();
+        else vm.OpenInNewTab(url);
+        if (w.WindowState == WindowState.Minimized) w.WindowState = WindowState.Normal;
+        w.Activate();
     }
 
     /// <summary>Shows relay://passwords, reusing a tab that already has it open.</summary>
@@ -257,7 +260,6 @@ public partial class App : Application
 
     public void CloseAuxiliaryWindows()
     {
-        _settingsWindow?.Close();
         _taskManager?.Close();
     }
 

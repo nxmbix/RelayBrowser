@@ -64,7 +64,7 @@ public partial class MainWindow : Window
             if (e.PropertyName == nameof(MainViewModel.VerticalTabsNarrow)) UpdateVerticalWidth();
             if (e.PropertyName == nameof(MainViewModel.VerticalTabs)) ApplyZenLayout();
         };
-        Loaded += (_, _) => { UpdateVerticalWidth(); ApplyZenLayout(); };
+        Loaded += (_, _) => { UpdateVerticalWidth(animate: false); ApplyZenLayout(); };
         Toolbar.SizeChanged += (_, _) => ApplyDensity();
 
         StripHost.SizeChanged += (_, _) => TabsList.MaxWidth = Math.Max(0, StripHost.ActualWidth - 40 - 56);
@@ -1136,7 +1136,9 @@ public partial class MainWindow : Window
                         break;
                     }
                     if (Relay.Core.Downloads.FileNameSafety.IsDangerous(item.FilePath) &&
-                        !RelayDialog.Confirm(this, "Open this file?", $"“{item.FileName}” can run programs on your computer. Open it only if you trust it.", "Open", danger: true, glyph: Icons.Warning))
+                        !RelayDialog.ConfirmFile(this, "Open this file?", item.FilePath,
+                            string.Join(" · ", new[] { FileIcons.Size(new FileInfo(item.FilePath).Length), item.Host.Length > 0 ? "from " + item.Host : null }.Where(x => !string.IsNullOrEmpty(x))),
+                            "This file can run programs on your computer. Only open it if you trust where it came from."))
                         break;
                     DownloadManager.Open(item);
                     break;
@@ -1453,12 +1455,45 @@ public partial class MainWindow : Window
         ApplyDensity();
     }
 
-    private void UpdateVerticalWidth()
+    private const double VerticalWide = 248, VerticalNarrow = 56;
+
+    /// <summary>
+    /// Slides the vertical tab list open or closed. The tabs keep one layout for the whole slide: when expanding
+    /// the full layout is shown first and revealed as the panel grows; when collapsing it stays (clipped) until
+    /// the panel is narrow, and only then switches to icons. Nothing inside reflows mid-animation.
+    /// </summary>
+    private void UpdateVerticalWidth(bool animate = true)
     {
-        var target = ViewModel.VerticalTabsNarrow ? 56.0 : 248.0;
-        if (!IsLoaded) { VerticalTabsPanel.Width = target; return; }
-        VerticalTabsPanel.BeginAnimation(WidthProperty,
-            new DoubleAnimation(target, TimeSpan.FromMilliseconds(240)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+        var narrow = ViewModel.VerticalTabsNarrow;
+        var target = narrow ? VerticalNarrow : VerticalWide;
+        if (!animate || !IsLoaded)
+        {
+            _verticalTarget = target;
+            VerticalTabsPanel.BeginAnimation(WidthProperty, null);
+            VerticalTabsPanel.Width = target;
+            SetVerticalCompact(narrow);
+            return;
+        }
+        if (_verticalTarget == target) return; // already there or on the way
+        _verticalTarget = target;
+        if (!narrow) SetVerticalCompact(false);
+        var anim = new DoubleAnimation(target, TimeSpan.FromMilliseconds(narrow ? 200 : 240))
+        {
+            EasingFunction = new CubicEase { EasingMode = narrow ? EasingMode.EaseIn : EasingMode.EaseOut },
+        };
+        if (narrow) anim.Completed += (_, _) => { if (ViewModel.VerticalTabsNarrow) SetVerticalCompact(true); };
+        VerticalTabsPanel.BeginAnimation(WidthProperty, anim);
+    }
+
+    private double _verticalTarget = double.NaN;
+
+    private void SetVerticalCompact(bool compact)
+    {
+        if (ViewModel.VerticalTabsCompact == compact && VerticalTabsContent.Width == (compact ? VerticalNarrow : VerticalWide)) return;
+        ViewModel.VerticalTabsCompact = compact;
+        VerticalTabsContent.Width = compact ? VerticalNarrow : VerticalWide;
+        // The icon layout settles in with a quick fade instead of a jump.
+        if (compact) VerticalTabsContent.BeginAnimation(OpacityProperty, new DoubleAnimation(0.4, 1, TimeSpan.FromMilliseconds(140)));
     }
 
     // ======================================================================================

@@ -225,6 +225,16 @@
     <Style x:Key="Button.Danger" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
         <Setter Property="Foreground" Value="{DynamicResource Brush.Danger}"/>
     </Style>
+    <Style x:Key="Button.Neutral" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Neutral}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Neutral}"/>
+    </Style>
+    <Style x:Key="Button.DangerFilled" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Danger}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Danger}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Brush.DangerText}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
     <Style x:Key="Button.Link" TargetType="Button">
         <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -734,14 +744,15 @@
         </Setter>
     </Style>
 
-    <!-- ===== Dialog window ===== -->
+    <!-- ===== Dialog window (RelayDialog): a transparent window holding a rounded card with a shadow ===== -->
     <Style x:Key="DialogWindow" TargetType="Window">
         <Setter Property="WindowStyle" Value="None"/>
+        <Setter Property="AllowsTransparency" Value="True"/>
         <Setter Property="ResizeMode" Value="NoResize"/>
         <Setter Property="SizeToContent" Value="WidthAndHeight"/>
         <Setter Property="ShowInTaskbar" Value="False"/>
-        <Setter Property="WindowStartupLocation" Value="CenterOwner"/>
-        <Setter Property="Background" Value="{DynamicResource Brush.Surface}"/>
+        <!-- WindowStartupLocation isn't a dependency property, so RelayDialog sets it in code. -->
+        <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/>
         <Setter Property="FontFamily" Value="{DynamicResource Font.UI}"/>
         <Setter Property="FontSize" Value="{DynamicResource Font.Size}"/>

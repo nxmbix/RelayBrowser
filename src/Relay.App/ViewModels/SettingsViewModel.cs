@@ -145,6 +145,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public TabDensity TabDensity { get => S.TabDensity; set => Set<TabDensity>(s => s.TabDensity = value); }
     public bool ShowTabFavicons { get => S.ShowTabFavicons; set => Set<bool>(s => s.ShowTabFavicons = value); }
     public bool SidebarEnabled { get => S.SidebarEnabled; set => Set<bool>(s => s.SidebarEnabled = value); }
+    public bool PinnedTabsInSidebar { get => S.PinnedTabsInSidebar; set => Set<bool>(s => s.PinnedTabsInSidebar = value); }
 
     public IReadOnlyList<string> FontChoices { get; }
     public string InterfaceFont { get => S.InterfaceFont; set => Set<string>(s => s.InterfaceFont = value); }

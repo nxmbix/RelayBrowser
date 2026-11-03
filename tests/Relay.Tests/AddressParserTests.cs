@@ -107,4 +107,25 @@ public class AddressParserTests
         Assert.False(UrlDisplay.IsPasswords("http://passwords.relay/passwords.html"));
         Assert.Null(UrlDisplay.ResolveRelayUrl("relay://nope"));
     }
+
+    [Theory]
+    [InlineData("relay://settings", "https://settings.relay/settings.html")]
+    [InlineData("relay://settings/privacy", "https://settings.relay/settings.html#privacy")]
+    [InlineData("RELAY://Settings/About/", "https://settings.relay/settings.html#about")]
+    public void Relay_settings_urls_open_the_settings_page(string input, string expected)
+    {
+        var r = AddressParser.Parse(input, Engine)!;
+        Assert.False(r.IsSearch);
+        Assert.Equal(expected, r.Uri.ToString());
+    }
+
+    [Fact]
+    public void Settings_page_shows_its_relay_address()
+    {
+        Assert.Equal("relay://settings", UrlDisplay.ForAddressBar(UrlDisplay.SettingsUrl));
+        Assert.Equal("relay://settings/blocking", UrlDisplay.ForAddressBar(UrlDisplay.SettingsSectionUrl("blocking")));
+        Assert.Equal("relay://settings", UrlDisplay.ForAddressBar(UrlDisplay.SettingsUrl + "#nope"));
+        Assert.True(UrlDisplay.IsInternal(UrlDisplay.SettingsUrl));
+        Assert.Null(UrlDisplay.ResolveRelayUrl("relay://settings/nope"));
+    }
 }

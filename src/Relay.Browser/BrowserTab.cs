@@ -33,6 +33,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         _isLoading = !UrlDisplay.IsNewTab(_pendingUrl);
         _s.NewTab.StateChanged += OnNewTabStateChanged;
         _s.PasswordsPage.StateChanged += OnPasswordsStateChanged;
+        if (_s.SettingsPage is { } settingsPage) settingsPage.StateChanged += OnSettingsStateChanged;
         _ = Task.Delay(400).ContinueWith(_ => IsNew = false, TaskScheduler.FromCurrentSynchronizationContext());
         if (_pendingUrl is not null && !UrlDisplay.IsNewTab(_pendingUrl)) _ = LoadCachedFaviconAsync(_pendingUrl);
     }
@@ -42,7 +43,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
 
     [ObservableProperty] private WebView2? _webView;
     [ObservableProperty] private string _title;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(AddressText), nameof(IsNewTabPage), nameof(Security), nameof(Host), nameof(IsReaderPage), nameof(IsPasswordsPage))] private string _url;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(AddressText), nameof(IsNewTabPage), nameof(Security), nameof(Host), nameof(IsReaderPage), nameof(IsPasswordsPage), nameof(IsSettingsPage))] private string _url;
     [ObservableProperty] private ImageSource? _favicon;
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _canGoBack;
@@ -72,6 +73,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
     public string AddressText => IsReaderPage && ReaderOriginalUrl is { } original ? UrlDisplay.ForAddressBar(original) : UrlDisplay.ForAddressBar(Url);
     public bool IsNewTabPage => UrlDisplay.IsNewTab(Url);
     public bool IsPasswordsPage => UrlDisplay.IsPasswords(Url);
+    public bool IsSettingsPage => UrlDisplay.IsSettings(Url);
     public string Host => UrlDisplay.Host(Url);
     public bool IsVisibleTab => IsActive || IsSplitVisible;
     public bool ShowWebView => IsVisibleTab && !IsCrashed && !IsObscured;
@@ -162,6 +164,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
             core.SetVirtualHostNameToFolderMapping(UrlDisplay.UserAssetsHost, _s.Paths.Backgrounds, CoreWebView2HostResourceAccessKind.DenyCors);
             core.SetVirtualHostNameToFolderMapping(UrlDisplay.ReaderHost, BrowserServices.NewTabFolder, CoreWebView2HostResourceAccessKind.DenyCors);
             core.SetVirtualHostNameToFolderMapping(UrlDisplay.PasswordsHost, BrowserServices.NewTabFolder, CoreWebView2HostResourceAccessKind.DenyCors);
+            core.SetVirtualHostNameToFolderMapping(UrlDisplay.SettingsHost, BrowserServices.NewTabFolder, CoreWebView2HostResourceAccessKind.DenyCors);
         }
         catch (Exception ex) { _s.Paths.LogError("Mapping new tab page", ex); }
 
@@ -611,6 +614,13 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
             catch (Exception ex) { _s.Paths.LogError("Passwords page message", ex); }
             return;
         }
+        // relay://settings, as the top-level document, may change settings.
+        if (IsSettingsPage && UrlDisplay.IsSettings(e.Source) && _s.SettingsPage is { } settings)
+        {
+            try { await settings.HandleMessageAsync(this, json); }
+            catch (Exception ex) { _s.Paths.LogError("Settings page message", ex); }
+            return;
+        }
         // Only RELAY's own new tab page, as the top-level document, may talk to the browser.
         if (!NewTabService.IsTrustedSource(e.Source) || !IsNewTabPage) return;
         try { await _s.NewTab.HandleMessageAsync(this, json); }
@@ -649,6 +659,24 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
     public void PostPasswordsMessage(string json)
     {
         if (Core is { } core && IsPasswordsPage && UrlDisplay.IsPasswords(core.Source)) core.PostWebMessageAsJson(json);
+    }
+
+    private async void OnSettingsStateChanged(object? sender, EventArgs e)
+    {
+        if (IsSettingsPage) await PushSettingsStateAsync();
+    }
+
+    public async Task PushSettingsStateAsync()
+    {
+        if (Core is null || !IsSettingsPage || _s.SettingsPage is not { } settings) return;
+        try { PostSettingsMessage(await settings.BuildStateJsonAsync(this)); }
+        catch (Exception ex) { _s.Paths.LogError("Settings page state", ex); }
+    }
+
+    /// <summary>Sends JSON to relay://settings, and only while that page is the one showing.</summary>
+    public void PostSettingsMessage(string json)
+    {
+        if (Core is { } core && IsSettingsPage && UrlDisplay.IsSettings(core.Source)) core.PostWebMessageAsJson(json);
     }
 
     public async Task PostNewTabMessageAsync(string json)
@@ -777,6 +805,7 @@ public sealed partial class BrowserTab : ObservableObject, IDisposable
         _discardTimer?.Stop();
         _s.NewTab.StateChanged -= OnNewTabStateChanged;
         _s.PasswordsPage.StateChanged -= OnPasswordsStateChanged;
+        if (_s.SettingsPage is { } settingsPage) settingsPage.StateChanged -= OnSettingsStateChanged;
         DisposeWebView();
     }
 }

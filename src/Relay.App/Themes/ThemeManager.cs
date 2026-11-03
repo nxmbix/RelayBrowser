@@ -147,6 +147,9 @@ public sealed class ThemeManager
         Brush("Brush.Field", Hex(p.Field));
         Brush("Brush.FieldFocus", Hex(p.FieldFocus));
         Brush("Brush.Danger", Hex(p.Danger));
+        Brush("Brush.DangerText", isDark ? Hex("#111315") : Colors.White);
+        Brush("Brush.Neutral", isDark ? Hex("#3A3D42") : Hex("#E4E7EA"));
+        Brush("Brush.DangerSubtle", Color.FromArgb(isDark ? (byte)46 : (byte)26, Hex(p.Danger).R, Hex(p.Danger).G, Hex(p.Danger).B));
         Brush("Brush.Scrim", Hex(p.Scrim));
         Brush("Brush.Shadow", Hex(p.Shadow));
         Brush("Brush.Accent", accent);

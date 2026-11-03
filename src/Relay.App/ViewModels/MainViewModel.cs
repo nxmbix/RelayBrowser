@@ -33,9 +33,12 @@ public sealed partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(VerticalTabsCollapsed));
             OnPropertyChanged(nameof(VerticalTabsNarrow));
             OnPropertyChanged(nameof(HorizontalTabs));
+            OnPropertyChanged(nameof(PinnedInRail));
+            OnPropertyChanged(nameof(ShowPinnedInRail));
             RebuildStrip();
         };
         Tabs.CollectionChanged += (_, _) => RebuildStrip();
+        PinnedTabs.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ShowPinnedInRail));
     }
 
     public BrowserServices Services => _s;
@@ -64,6 +67,14 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>The vertical tab list shows icons only (collapsed and not expanded by hovering).</summary>
     public bool VerticalTabsNarrow => VerticalTabsCollapsed && !SidebarHoverExpanded;
     [ObservableProperty] private bool _sidebarHoverExpanded;
+    /// <summary>
+    /// The icon-only layout of the vertical tab list. It follows <see cref="VerticalTabsNarrow"/>, but while collapsing
+    /// it switches only once the panel is narrow, so tabs don't reflow during the slide.
+    /// </summary>
+    [ObservableProperty] private bool _verticalTabsCompact;
+    /// <summary>Tabs are on top and pinned tabs live in the sidebar rail instead of the strip.</summary>
+    public bool PinnedInRail => !VerticalTabs && SidebarEnabled && _s.Settings.Current.PinnedTabsInSidebar;
+    public bool ShowPinnedInRail => PinnedInRail && PinnedTabs.Count > 0;
     partial void OnSidebarHoverExpandedChanged(bool value) => OnPropertyChanged(nameof(VerticalTabsNarrow));
     /// <summary>Corner radius of the page, in DIPs (the floating page card of the vertical layout).</summary>
     [ObservableProperty] private double _pageCornerRadius;
@@ -376,7 +387,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     public void RebuildStrip()
     {
-        var vertical = VerticalTabs;
+        var pinnedElsewhere = VerticalTabs || PinnedInRail;
         var pinned = Tabs.Where(t => t.IsPinned).ToList();
         for (var i = PinnedTabs.Count - 1; i >= 0; i--)
             if (!pinned.Contains(PinnedTabs[i])) PinnedTabs.RemoveAt(i);
@@ -391,7 +402,7 @@ public sealed partial class MainViewModel : ObservableObject
         TabGroup? prev = null;
         foreach (var t in Tabs)
         {
-            if (vertical && t.IsPinned) { prev = null; continue; }
+            if (pinnedElsewhere && t.IsPinned) { prev = null; continue; }
             if (t.Group is { } g && !ReferenceEquals(g, prev)) desired.Add(g);
             prev = t.Group;
             if (t.Group is { IsCollapsed: true }) continue;

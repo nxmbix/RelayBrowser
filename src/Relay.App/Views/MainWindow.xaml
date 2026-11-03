@@ -225,7 +225,7 @@
                     </Grid>
                     <TextBlock x:Name="VTitle" Grid.Column="1" Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12.5"
-                               Visibility="{Binding DataContext.VerticalTabsNarrow, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisInverted}}"/>
+                               Visibility="{Binding DataContext.VerticalTabsCompact, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisInverted}}"/>
                     <Button x:Name="VClose" Grid.Column="2" Style="{StaticResource IconButton.Small}" Width="22" Height="22" FontSize="10"
                             Content="{x:Static c:Icons.Close}" Visibility="Hidden" Click="OnTabCloseClick" ToolTip="Close tab (Ctrl+W)"/>
                 </Grid>
@@ -263,7 +263,7 @@
                                 <DoubleAnimation Storyboard.TargetName="ActiveLayer" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.20"/>
                     </Storyboard></BeginStoryboard></DataTrigger.ExitActions>
                 </DataTrigger>
-                <DataTrigger Binding="{Binding DataContext.VerticalTabsNarrow, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                <DataTrigger Binding="{Binding DataContext.VerticalTabsCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                     <Setter TargetName="VClose" Property="Visibility" Value="Collapsed"/>
                     <Setter TargetName="Inner" Property="Margin" Value="12,0,0,0"/>
                 </DataTrigger>
@@ -391,7 +391,7 @@
                     </TextBlock>
                     <Ellipse Width="9" Height="9" Fill="{Binding Brush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                               Visibility="{Binding DataContext.VerticalTabsNarrow, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisInverted}}"/>
+                               Visibility="{Binding DataContext.VerticalTabsCompact, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisInverted}}"/>
                 </DockPanel>
             </Border>
         </DataTemplate>
@@ -803,7 +803,7 @@
                 <Border x:Name="VerticalTabsPanel" Width="248" Background="{DynamicResource Brush.Chrome}" ClipToBounds="True"
                         MouseEnter="OnVerticalPanelEnter" MouseLeave="OnVerticalPanelLeave"
                         Visibility="{Binding VerticalTabs, Converter={StaticResource BoolToVis}}">
-                    <DockPanel Margin="0,2,0,0">
+                    <DockPanel x:Name="VerticalTabsContent" Margin="0,2,0,0" Width="248" HorizontalAlignment="Left">
                         <ItemsControl x:Name="PinnedList" DockPanel.Dock="Top" ItemsSource="{Binding PinnedTabs}" ItemTemplate="{StaticResource PinnedTileTemplate}"
                                       Margin="5,0,5,2" Focusable="False"
                                       PreviewMouseLeftButtonDown="OnPinnedMouseDown" PreviewMouseUp="OnTabsMiddleUp" MouseRightButtonUp="OnTabsRightClick"
@@ -816,7 +816,7 @@
                                         </Setter.Value>
                                     </Setter>
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding VerticalTabsNarrow}" Value="True">
+                                        <DataTrigger Binding="{Binding VerticalTabsCompact}" Value="True">
                                             <Setter Property="ItemsPanel">
                                                 <Setter.Value>
                                                     <ItemsPanelTemplate><UniformGrid Columns="1"/></ItemsPanelTemplate>
@@ -838,7 +838,7 @@
                                         <StackPanel x:Name="Content" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                                             <TextBlock Style="{StaticResource Text.Icon}" FontSize="13" Text="{x:Static c:Icons.Add}" Foreground="{DynamicResource Brush.TextSecondary}"/>
                                             <TextBlock Text="New tab" Margin="12,0,0,0" Foreground="{DynamicResource Brush.TextSecondary}" FontSize="12.5"
-                                                       Visibility="{Binding VerticalTabsNarrow, Converter={StaticResource BoolToVisInverted}}"/>
+                                                       Visibility="{Binding VerticalTabsCompact, Converter={StaticResource BoolToVisInverted}}"/>
                                         </StackPanel>
                                     </Grid>
                                     <ControlTemplate.Triggers>
@@ -885,6 +885,15 @@
                     <DockPanel Margin="0,8">
                         <Button DockPanel.Dock="Bottom" Style="{StaticResource IconButton}" Width="38" Height="38"
                                 Content="{x:Static c:Icons.Settings}" Click="OnOpenSettings" ToolTip="Settings"/>
+                        <!-- Pinned tabs (Settings → Appearance → Show pinned tabs in the sidebar) -->
+                        <ScrollViewer DockPanel.Dock="Top" MaxHeight="360" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled"
+                                      Focusable="False" Visibility="{Binding ShowPinnedInRail, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl x:Name="RailPinnedList" ItemsSource="{Binding PinnedTabs}" ItemTemplate="{StaticResource PinnedTileTemplate}"
+                                          Margin="0,0,0,2" Focusable="False"
+                                          PreviewMouseLeftButtonDown="OnPinnedMouseDown" PreviewMouseUp="OnTabsMiddleUp" MouseRightButtonUp="OnTabsRightClick"/>
+                        </ScrollViewer>
+                        <Border DockPanel.Dock="Top" Height="1" Margin="10,4,10,8" Background="{DynamicResource Brush.Border}"
+                                Visibility="{Binding ShowPinnedInRail, Converter={StaticResource BoolToVis}}"/>
                         <StackPanel HorizontalAlignment="Center">
                             <ToggleButton Style="{StaticResource RailButton}" Content="{x:Static c:Icons.Bookmarks}" ToolTip="Bookmarks"
                                           Tag="Bookmarks" Click="OnRailClick"

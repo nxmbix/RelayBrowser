@@ -31,6 +31,8 @@ public sealed class RelaySettings
     public double DefaultZoom { get; set; } = 1.0;
     public bool SidebarVisible { get; set; }
     public bool SidebarEnabled { get; set; } = true;
+    /// <summary>With tabs on top, pinned tabs live in the sidebar instead of the tab strip.</summary>
+    public bool PinnedTabsInSidebar { get; set; } = true;
     /// <summary>Background tabs sleep after this many minutes (0 = never).</summary>
     public int SleepTabsAfterMinutes { get; set; } = 15;
     /// <summary>Background tabs are unloaded completely (their memory is freed) after this many minutes (0 = never).</summary>

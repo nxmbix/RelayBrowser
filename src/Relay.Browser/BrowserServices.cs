@@ -48,6 +48,8 @@ public sealed class BrowserServices
     public PermissionHandler PermissionHandler { get; }
     public NewTabService NewTab { get; }
     public PasswordsPageService PasswordsPage { get; }
+    /// <summary>relay://settings. Supplied by the app, which owns the settings logic and dialogs.</summary>
+    public IInternalPage? SettingsPage { get; set; }
     public FaviconCache FaviconCache { get; }
     public BlockerService Blocker { get; }
 
